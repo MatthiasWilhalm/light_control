@@ -17,13 +17,29 @@ void loop() {
   if(text.length() == 0) {
     return;
   }
-  int ledIndex = text.toInt();
-  Serial.println("Received: " + String(ledIndex));
-  if(ledIndex > 7 || ledIndex < 0) {
+  if(text.equals("reset")) {
+    reset();
     return;
   }
-  reset();
-  digitalWrite(ledPins[ledIndex], HIGH);
+  int ledIndex = text.substring(0, text.indexOf(',')).toInt();
+  int ledState = text.substring(text.indexOf(',') + 1).toInt(); // 0 = off, 1 = on
+  
+  if(ledIndex > 7 || ledIndex < 0) {
+    Serial.println("Invalid LED index ("+String(ledIndex)+")");
+    return;
+  }
+
+  if(ledState == 0) {
+    Serial.println("Turning off LED "+String(ledIndex));
+    digitalWrite(ledPins[ledIndex], LOW);
+    return;
+  } 
+  if(ledState == 1) {
+    Serial.println("Turning on LED "+String(ledIndex));
+    digitalWrite(ledPins[ledIndex], HIGH);
+    return;
+  }
+  Serial.println("Invalid LED state ("+String(ledState)+")");
 }
 
 void reset() {

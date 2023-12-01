@@ -1,0 +1,46 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    justify-content: center;
+    align-items: center;
+    row-gap: 20px;
+}
+
+button {
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.light-interface {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    width: 500px;
+    height: 500px;
+}
+
+.light-map {
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    background-image: url('./light_map.svg');
+    width: 600px;
+    height: 600px;
+}
+.element {
+    border: 1px solid #000000;
+}
+
+.light-element {
+    background-color: rgba(172, 172, 172, 0.411);
+}
+
+.light-element-active {
+    background-color: #ff000065;
+}
