@@ -1,14 +1,18 @@
-Array.from(document.getElementsByClassName('light-element')).forEach((light, i) => {
+// TODO: just a temp solution
+const SvgIndexToLightIndex = [1, 6, 4, 3, 0, 5, 2, 7];
+
+Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
-        const className = 'light-element-active';
+        const className = 'selected';
         light.classList.toggle(className);
-        sendLightUpdate(i, light.classList.contains(className));
+        console.log(`Light ${i} is ${SvgIndexToLightIndex[i]}`);
+        sendLightUpdate(SvgIndexToLightIndex[i], light.classList.contains(className));
     });
 });
 
 document.getElementById('reset').addEventListener('click', () => {
-    Array.from(document.getElementsByClassName('light-element')).forEach(light => {
-        light.classList.remove('light-element-active');
+    Array.from(document.getElementsByTagName('path')).forEach(light => {
+        light.classList.remove('selected');
     });
     sendReset();
 });
