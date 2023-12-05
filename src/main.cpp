@@ -17,10 +17,31 @@ void loop() {
   if(text.length() == 0) {
     return;
   }
+
+  // Commands
+
   if(text.equals("reset")) {
     reset();
     return;
   }
+
+  // set:00000000 (8 bits, 0 = off, 1 = on)
+  // to set all LEDs at once
+
+  if(text.startsWith("set")) {
+    String ledsToSet = text.substring(3);
+    for (uint8_t i = 0; i < sizeof(ledPins); i++) {
+      if(ledsToSet[i] == '1') {
+        digitalWrite(ledPins[i], HIGH);
+      } else {
+        digitalWrite(ledPins[i], LOW);
+      }
+    }
+    return;
+  }
+
+  // default single LED control
+
   int ledIndex = text.substring(0, text.indexOf(',')).toInt();
   int ledState = text.substring(text.indexOf(',') + 1).toInt(); // 0 = off, 1 = on
   

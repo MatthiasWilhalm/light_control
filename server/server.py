@@ -35,5 +35,19 @@ def reset_endpoint():
     ser.write(b"reset")
     return jsonify(message="Resetting all lights")
 
+@app.route('/setall', methods=['POST'])
+def setall_endpoint():
+    data = request.get_json()
+    j_data = jsonify(message="Data received", received_data=data).json
+    print("received data: " + str(j_data['received_data']))
+    
+    path = j_data['received_data']['path']
+    serial_msg = "set" + str(path)
+    
+    res = str(serial_msg).encode('utf-8')
+    print("sending data via serial: " + res.decode('utf-8'))
+    ser.write(res)
+    return jsonify(message="Data received", received_data=data)
+
 if __name__ == '__main__':
     app.run(debug=True)
