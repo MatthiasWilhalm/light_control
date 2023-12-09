@@ -1,24 +1,28 @@
 const NODES = {
     0: {
-        neighbours: [1, 2, 3],
-        paths: [0, 1, 2]
+        neighbours: [1, 1, 1, 2, 2, 2, 3, 3, 3],
+        paths: [0, 1, 2, 3, 4, 5, 6, 7, 8]
     },
     1: {
-        neighbours: [0, 2, 4],
-        paths: [0, 3, 5]
+        neighbours: [0, 0, 0, 2, 2, 2, 4, 4, 4],
+        paths: [0, 1, 2, 9, 10, 11, 15, 16, 17]
     },
     2: {
-        neighbours: [0, 1, 3, 4],
-        paths: [1, 3, 4, 6]
+        neighbours: [0, 0, 0, 1, 1, 1, 3, 3, 3, 4, 4, 4],
+        paths: [3, 4, 5, 9, 10, 11, 12, 13, 14, 18, 19, 20]
     },
     3: {
-        neighbours: [0, 2, 4],
-        paths: [2, 4, 7]
+        neighbours: [0, 0, 0, 2, 2, 2, 4, 4, 4],
+        paths: [6, 7, 8, 12, 13, 14, 21, 22, 23]
     },
     4: {
-        neighbours: [1, 2, 3],
-        paths: [5, 6, 7]
+        neighbours: [1, 1, 1, 2, 2, 2, 3, 3, 3],
+        paths: [15, 16, 17, 18, 19, 20, 21, 22, 23]
     }
+};
+
+const getReducedNeighbours = (nodeIndex) => {
+    return [...new Set(NODES[nodeIndex].neighbours)];
 };
 
 export const calcRandomPath = () => {
@@ -29,7 +33,7 @@ export const calcRandomPath = () => {
     let i = 0;
     path.push(currentNode);
     while (currentNode !== 4 && i < 100) {
-        const connectedNodes = NODES[currentNode].neighbours;
+        const connectedNodes = getReducedNeighbours(currentNode);
         const filteredNodes = connectedNodes.filter(node => prevNodes.indexOf(node) === -1);
         nextNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
         prevNodes.push(currentNode);

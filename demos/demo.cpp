@@ -11,7 +11,7 @@
 #define CLOCK_PIN 10 // Pin connected to SHCP of 74HC595
 
 // How many of the shift registers
-#define NUM_SHIFT_REGS 2
+#define NUM_SHIFT_REGS 3
 
 const uint8_t numOfRegisterPins = NUM_SHIFT_REGS * 8;
 

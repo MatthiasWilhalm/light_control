@@ -52,8 +52,6 @@ def cleanup():
 
 atexit.register(cleanup)
 
-### api endpoints ###
-
 # accepts a JSON object with a light_index number property
 @app.route('/setlight', methods=['POST'])
 def post_endpoint():
