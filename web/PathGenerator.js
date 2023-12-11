@@ -46,14 +46,17 @@ export const calcRandomPath = () => {
 
 const convertNodeIndexesToPath = (nodeIndexes) => {
     const paths = [];
+    // this is needed since we currently only connect to nodes that are next to each other
+    // but we want to have some variation in the paths
+    const getRandomOffset = () => Math.floor(Math.random() * 3);
     for (let i = 0; i < nodeIndexes.length - 1; i++) {
-        const path = nodeIndexesToPaths(nodeIndexes[i], nodeIndexes[i + 1]);
+        const path = nodeIndexesToPaths(nodeIndexes[i], nodeIndexes[i + 1], getRandomOffset());
         paths.push(path);
     }
     return paths;
 };
 
-const nodeIndexesToPaths = (startNode, endNode) => {
+const nodeIndexesToPaths = (startNode, endNode, offset) => {
     const index = NODES[startNode].neighbours.indexOf(endNode);
-    return NODES[startNode].paths[index];
+    return NODES[startNode].paths[index + offset];
 }
