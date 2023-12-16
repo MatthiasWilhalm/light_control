@@ -28,6 +28,12 @@ document.getElementById('random').addEventListener('click', () => {
     sendRandomPath();
 });
 
+document.getElementById('all_on').addEventListener('click', () => {
+    const path = new Array(24).fill(0).map((_, i) => i);
+    updateDisplayByPath(path);
+    sendPath(path);
+});
+
 document.getElementById('send').addEventListener('click', () => {
     socket.send('Hello Server!');
 });
