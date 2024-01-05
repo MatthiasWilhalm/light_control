@@ -1,8 +1,11 @@
+import random
 import time
 import serial
 import atexit
 import threading
 import socket
+from tcp_server import TCP_Server
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -73,43 +76,6 @@ def setall_endpoint():
     
     return jsonify(message="Data received", received_data=data)
 
-
-### TCP server function ###
-def start_tcp_server(stop_event):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.settimeout(1)
-    server_address = (TCP_ADDRESS, TCP_PORT)
-    server_socket.bind(server_address)
-    server_socket.listen(1)
-    print("TCP server started on " + TCP_ADDRESS + ":" + str(TCP_PORT))
-
-    try:
-        while not stop_event.is_set():
-            try:
-                client_socket, client_address = server_socket.accept()
-                print("accepted connection from " + str(client_address))
-            except socket.timeout:
-                continue
-            try:
-                while True:
-                    data = client_socket.recv(1024)
-                    if data:
-                        print("received data via TCP: " + data.decode('utf-8'))
-                        # client_socket.sendall(data)
-                    else:
-                        break
-            except:
-                print("lost connection to client")
-            finally:
-                print("closing TCP connection")
-                client_socket.close()
-    
-    except: 
-        print("error accepting connection")
-    finally:
-        print("closing TCP server")
-        server_socket.close()
-
 ### helper functions ###
 
 # sends a message to the serial connection
@@ -128,7 +94,7 @@ if __name__ == '__main__':
     except:
         print("failed to connect to serial connection")
 
-    tcp_server_thread = threading.Thread(target=start_tcp_server, args=(stop_event,))
+    tcp_server_thread = TCP_Server(stop_event, TCP_ADDRESS, TCP_PORT)
     tcp_server_thread.start()
 
     flask_server_thread = threading.Thread(target=app.run, args=(str(REST_PORT),))
