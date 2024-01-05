@@ -1,5 +1,17 @@
 import { calcRandomPath } from "./PathGenerator.js";
 
+const socket = new WebSocket('ws://localhost:8765');
+
+// Connection opened
+socket.addEventListener('open', (event) => {
+    console.log('connected to WebSocket-Server');
+});
+
+// Listen for messages
+socket.addEventListener('message', (event) => {
+    console.log('Message from server: ', event.data);
+});
+
 // TODO: just a temp solution
 const SvgIndexToLightIndex = [1, 6, 4, 3, 0, 5, 2, 7];
 const LightIndexToSvgIndex = (index) => SvgIndexToLightIndex.indexOf(index);
@@ -19,6 +31,10 @@ document.getElementById('reset').addEventListener('click', () => {
 
 document.getElementById('random').addEventListener('click', () => {
     sendRandomPath();
+});
+
+document.getElementById('send').addEventListener('click', () => {
+    socket.send('Hello Server!');
 });
 
 /**

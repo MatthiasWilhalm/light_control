@@ -1,7 +1,7 @@
 import socket
 import threading
 
-class TCP_Server(threading.Thread):
+class TCPServer(threading.Thread):
 
     def __init__(self, stop_event, tcp_address, tcp_port):
         self.stop_event = stop_event
