@@ -42,9 +42,6 @@ def cleanup():
     if tcp_server_thread and tcp_server_thread.is_alive():
         tcp_server_thread.join()
         print("TCP server thread closed")
-    if flask_server_thread and flask_server_thread.is_alive():
-        flask_server_thread.join()
-        print("REST API server thread closed")
     if websocket_server_thread and websocket_server_thread.is_alive():
         websocket_server_thread.stop()
         websocket_server_thread.join()
@@ -104,7 +101,7 @@ if __name__ == '__main__':
     tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT)
     tcp_server_thread.start()
     
-    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT)
+    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection)
     websocket_server_thread.start()
 
     try:

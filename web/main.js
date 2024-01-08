@@ -15,13 +15,15 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
         const nextState = !light.classList.contains('selected');
         updateDisplayLight(light, nextState);
-        sendLightUpdate(i, nextState);
+        // sendLightUpdate(i, nextState);
+        sendLightUpdateWS(i, nextState);
     });
 });
 
 document.getElementById('reset').addEventListener('click', () => {
     updateDisplayByPath([]);
-    sendReset();
+    // sendReset();
+    sendResetWS();
 });
 
 document.getElementById('random').addEventListener('click', () => {
@@ -31,11 +33,14 @@ document.getElementById('random').addEventListener('click', () => {
 document.getElementById('all_on').addEventListener('click', () => {
     const path = new Array(24).fill(0).map((_, i) => i);
     updateDisplayByPath(path);
-    sendPath(path);
+    // sendPath(path);
+    sendPathWS(path);
 });
 
 document.getElementById('send').addEventListener('click', () => {
-    socket.send('Hello Server!');
+    const path = new Array(24).fill(0).map((_, i) => i);
+    updateDisplayByPath(path);
+    sendPathWS(path);
 });
 
 /**
@@ -44,7 +49,8 @@ document.getElementById('send').addEventListener('click', () => {
 const sendRandomPath = () => {
     const path = calcRandomPath();
     updateDisplayByPath(path);
-    sendPath(path);
+    // sendPath(path);
+    sendPathWS(path);
 };
 
 /**
@@ -129,4 +135,28 @@ const sendPath = (path) => {
         if(response.status !== 200)
             console.log(response);
     });
+}
+
+const sendLightUpdateWS = (index, state) => {
+    socket.send(JSON.stringify({
+        path: '/setlight',
+        body: {
+            index: index,
+            state: state
+        }
+    }));
+}
+
+const sendResetWS = () => {
+    socket.send(JSON.stringify({
+        path: '/reset',
+        body: ''
+    }));
+}
+
+const sendPathWS = (path) => {
+    socket.send(JSON.stringify({
+        path: '/setall',
+        body: new Array(24).fill(0).map((_, i) => path.includes(i) ? '1' : '0').join('')
+    }));
 }
