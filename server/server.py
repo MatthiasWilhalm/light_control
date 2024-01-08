@@ -52,8 +52,6 @@ def cleanup():
 
 atexit.register(cleanup)
 
-### api endpoints ###
-
 # accepts a JSON object with a light_index number property
 @app.route('/setlight', methods=['POST'])
 def post_endpoint():
@@ -97,25 +95,21 @@ if __name__ == '__main__':
 
     try:
         # use this for the emulator
-        # serial_connection = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600)
-        serial_connection = serial.Serial(port=SERIAL_PORT, baudrate=9600)
+        serial_connection = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600)
+        # serial_connection = serial.Serial(port=SERIAL_PORT, baudrate=9600)
         print("connected to serial connection: " + serial_connection.name)
     except:
         print("failed to connect to serial connection")
 
     tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT)
     tcp_server_thread.start()
-
-    flask_server_thread = threading.Thread(target=app.run, args=(str(REST_PORT),))
-    flask_server_thread.start()
-    print("REST API server started on port " + str(REST_PORT))
-
+    
     websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT)
     websocket_server_thread.start()
 
     try:
-        while True:  # Keep the main thread running to allow keyboard interrupt
-            time.sleep(1)
+        app.run()
+        print("REST API server started on port " + str(REST_PORT))
     except KeyboardInterrupt:
         print("exiting...")
         cleanup()

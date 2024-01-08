@@ -1,5 +1,4 @@
 import { calcRandomPath } from "./PathGenerator.js";
-
 const socket = new WebSocket('ws://localhost:8765');
 
 // Connection opened
@@ -12,15 +11,11 @@ socket.addEventListener('message', (event) => {
     console.log('Message from server: ', event.data);
 });
 
-// TODO: just a temp solution
-const SvgIndexToLightIndex = [1, 6, 4, 3, 0, 5, 2, 7];
-const LightIndexToSvgIndex = (index) => SvgIndexToLightIndex.indexOf(index);
-
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
         const nextState = !light.classList.contains('selected');
         updateDisplayLight(light, nextState);
-        sendLightUpdate(SvgIndexToLightIndex[i], nextState);
+        sendLightUpdate(i, nextState);
     });
 });
 
@@ -33,6 +28,12 @@ document.getElementById('random').addEventListener('click', () => {
     sendRandomPath();
 });
 
+document.getElementById('all_on').addEventListener('click', () => {
+    const path = new Array(24).fill(0).map((_, i) => i);
+    updateDisplayByPath(path);
+    sendPath(path);
+});
+
 document.getElementById('send').addEventListener('click', () => {
     socket.send('Hello Server!');
 });
@@ -42,7 +43,7 @@ document.getElementById('send').addEventListener('click', () => {
  */
 const sendRandomPath = () => {
     const path = calcRandomPath();
-    updateDisplayByPath(path.map(path => LightIndexToSvgIndex(path)));
+    updateDisplayByPath(path);
     sendPath(path);
 };
 
@@ -122,7 +123,7 @@ const sendPath = (path) => {
         },
         mode: 'cors',
         body: JSON.stringify({
-            path: new Array(8).fill(0).map((_, i) => path.includes(i) ? '1' : '0').join('')
+            path: new Array(24).fill(0).map((_, i) => path.includes(i) ? '1' : '0').join('')
         })
     }).then(response => {
         if(response.status !== 200)
