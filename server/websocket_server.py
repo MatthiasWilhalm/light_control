@@ -4,16 +4,16 @@ import threading
 import json
 
 class WebSocketServer(threading.Thread):
-    def __init__(self, host, port, serial_connection):
+    def __init__(self, host, port, serial_connection, logger):
         super().__init__()
         self.host = host
         self.port = port
         self.serial_connection = serial_connection
+        self.logger = logger
         self.loop = None
         
     async def _msg_received(self, websocket, path):
         async for message in websocket:
-            print("Received message: " + str(message))
             res = json.loads(message)
             path = res['path']
             body = res['body']
@@ -21,10 +21,13 @@ class WebSocketServer(threading.Thread):
             if path == '/setlight':
                 light_index = body['index']
                 light_state = 1 if body['state'] == True else 0
+                self.logger.log("Setting light " + str(light_index) + " to " + str(light_state), True)
                 self._send_serial_msg(str(light_index) + "," + str(light_state))
             elif path == '/reset':
+                self.logger.log("Resetting lights", True)
                 self._send_serial_msg("reset")
             elif path == '/setall':
+                self.logger.log("Setting all lights to " + str(body), True)
                 self._send_serial_msg("set" + str(body))
             else:
                 print("Unknown path: " + path)

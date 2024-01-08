@@ -3,10 +3,11 @@ import threading
 
 class TCPServer(threading.Thread):
 
-    def __init__(self, stop_event, tcp_address, tcp_port):
+    def __init__(self, stop_event, tcp_address, tcp_port, logger):
         self.stop_event = stop_event
         self.tcp_address = tcp_address
         self.tcp_port = tcp_port
+        self.logger = logger
         threading.Thread.__init__(self)
 
     def run(self):

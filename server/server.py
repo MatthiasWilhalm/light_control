@@ -1,17 +1,17 @@
-import random
 import time
 import serial
 import atexit
 import threading
-import socket
 from tcp_server import TCPServer
 from websocket_server import WebSocketServer
+from logger import Logger
 
 TCP_ADDRESS = 'localhost'
 TCP_PORT = 12345
 SERIAL_PORT = 'COM3'
 WEBSOCKET_ADDRESS = 'localhost'
 WEBSOCKET_PORT = 8765
+LOG_FILEPATH = '../logs/log.txt'
 
 
 global serial_connection
@@ -50,6 +50,8 @@ def send_serial_msg(msg):
     serial_connection.write(res)
 
 if __name__ == '__main__':
+    
+    logger = Logger(LOG_FILEPATH)
 
     try:
         # use this for the emulator
@@ -59,10 +61,10 @@ if __name__ == '__main__':
     except:
         print("failed to connect to serial connection")
 
-    tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT)
+    tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT, logger)
     tcp_server_thread.start()
     
-    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection)
+    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection, logger)
     websocket_server_thread.start()
 
     try:
