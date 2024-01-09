@@ -8,6 +8,10 @@ const socket = new WebSocket(URL);
 socket.addEventListener('open', (event) => {
     console.log('connected to WebSocket-Server');
     setConnectionStatusDisplay(true);
+    socket.send(JSON.stringify({
+        path: '/identify',
+        body: 'web-client'
+    }));
 });
 
 // Connection closed
@@ -19,6 +23,10 @@ socket.addEventListener('close', (event) => {
 // Listen for messages
 socket.addEventListener('message', (event) => {
     console.log('Message from server: ', event.data);
+    const message = JSON.parse(event.data);
+    if(message.path === '/connections') {
+        setNBackStatusDisplay(!!message.body?.includes('nback'));
+    }
 });
 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
@@ -152,18 +160,28 @@ const setConnectionStatusDisplay = (connected) => {
     const icon = document.getElementById('connectionStatusIndicator');
     const statusText = document.getElementById('connectionStatusText');
     const urlText = document.getElementById('connectionStatusConnectedTo');
+    const statusNBack = document.getElementById('connectionStatusNBack');
 
     if (connected) {
         icon.classList.remove('disconnected');
         icon.classList.add('connected');
         statusText.innerText = 'connected';
         urlText.innerText = URL;
+        urlText.style.display = 'block';
+        statusNBack.style.display = 'block';
     } else {
         icon.classList.remove('connected');
         icon.classList.add('disconnected');
         statusText.innerText = 'disconnected';
         urlText.innerText = '';
+        urlText.style.display = 'none';
+        statusNBack.style.display = 'none';
     }
+};
+
+const setNBackStatusDisplay = (connected) => {
+    const statusNBack = document.getElementById('connectionStatusNBack');
+    statusNBack.innerText = 'N-Back:' + (connected ? 'connected' : 'disconnected');
 };
 
 setConnectionStatusDisplay(false);

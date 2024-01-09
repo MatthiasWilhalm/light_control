@@ -11,11 +11,13 @@ class WebSocketServer(threading.Thread):
         self.serial_connection = serial_connection
         self.logger = logger
         self.loop = None
-        self.active_connections = set()
+        self.active_connections = {}
         
     async def _msg_received(self, websocket, ws_path):
         
-        self.active_connections.add(websocket)
+        connection_id = id(websocket)
+        
+        self.active_connections[connection_id] = websocket
         
         try:
             async for message in websocket:
@@ -34,6 +36,11 @@ class WebSocketServer(threading.Thread):
                 elif path == '/setall':
                     self.logger.log("Setting all lights to " + str(body), True)
                     self._send_serial_msg("set" + str(body))
+                elif path == '/identify':
+                    del self.active_connections[connection_id]
+                    connection_id = body
+                    self.active_connections[connection_id] = websocket
+                    await self.send_active_connections()
                 elif path == '/echo':
                     print("Echo path: " + ws_path)
                     print("Echoing message: " + message)
@@ -44,11 +51,18 @@ class WebSocketServer(threading.Thread):
                 else:
                     print("Unknown path: " + path)
         finally:
-            self.active_connections.remove(websocket)
+            del self.active_connections[connection_id]
+            await self.send_active_connections()
                             
     async def broadcast(self, message):
         if self.active_connections:
-            await asyncio.gather(*(ws.send(message) for ws in self.active_connections))
+            await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values()))
+    
+    async def send_active_connections(self):
+        print("Active connections:")
+        for key in self.active_connections:
+            print(key)
+        await self.broadcast(json.dumps({'path': '/connections', 'body': list(self.active_connections.keys())}))
 
     def run(self):
         print("WebSocket server starting on " + self.host + ":" + str(self.port))
