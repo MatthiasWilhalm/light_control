@@ -2,7 +2,6 @@ body {
     font-family: 'Roboto', sans-serif;
     font-size: 16px;
     margin: 0;
-    margin-top: 20px;
     padding: 0;
     justify-content: center;
     align-items: center;
@@ -16,16 +15,78 @@ button {
     font-size: 16px;
     padding: 10px 20px;
     border: none;
-    border-radius: 5px;
+    border-bottom: 1px solid #575757;
     cursor: pointer;
+    width: 100%;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    width: 100%;
+    height: 100%;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #575757;
+    position: relative;
+}
+
+li label {
+    display: block;
+    padding: 10px 20px;
+    color: #ffffff;
+    text-align: center;
+}
+
+li.connectionStatus {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    position: absolute;
+    width: 100%;
+    color: #ffffff;
+    bottom: 0;
+}
+
+#connectionStatusText {
+    font-weight: bold;
+    padding: 0;
+    text-align: left;
+}
+
+#connectionStatusConnectedTo {
+    font-size: 12px;
+    padding: 0;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    text-align: left;
+}
+
+#connectionStatusIndicator {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background-color: #ff0000;
+    grid-row: span 2;
+    align-self: center;
+    justify-self: center;
+}
+
+#connectionStatusIndicator.disconnected {
+    background-color: #ff0000;
+}
+
+#connectionStatusIndicator.connected {
+    background-color: #00ff00;
 }
 
 .light-map {
-    display: grid;
-    align-items: center;
-    justify-items: center;
-    width: 90%;
-    height: 90%;
+    height: 95vh;
+    margin-top: 20px;
 }
 .element {
     border: 1px solid #000000;

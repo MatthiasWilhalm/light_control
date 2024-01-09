@@ -1,9 +1,19 @@
 import { calcRandomPath } from "./PathGenerator.js";
-const socket = new WebSocket('ws://localhost:8765');
+
+const URL = 'ws://localhost:8765';
+
+const socket = new WebSocket(URL);
 
 // Connection opened
 socket.addEventListener('open', (event) => {
     console.log('connected to WebSocket-Server');
+    setConnectionStatusDisplay(true);
+});
+
+// Connection closed
+socket.addEventListener('close', (event) => {
+    console.log('disconnected from WebSocket-Server');
+    setConnectionStatusDisplay(false);
 });
 
 // Listen for messages
@@ -34,10 +44,36 @@ document.getElementById('all_on').addEventListener('click', () => {
     sendPath(path);
 });
 
-document.getElementById('send').addEventListener('click', () => {
-    const path = new Array(24).fill(0).map((_, i) => i);
-    updateDisplayByPath(path);
-    sendPath(path);
+document.getElementById('echo').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/echo',
+        body: 'echoing from web-client'
+    }));
+});
+
+document.getElementById('startTask').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'startTask'
+    }));
+});
+document.getElementById('startBaseline').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'startBaseline'
+    }));
+});
+document.getElementById('triggerLeft').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'triggerLeft'
+    }));
+});
+document.getElementById('triggerRight').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'triggerRight'
+    }));
 });
 
 /**
@@ -111,3 +147,23 @@ const sendPath = (path) => {
         body: new Array(24).fill(0).map((_, i) => path.includes(i) ? '1' : '0').join('')
     }));
 }
+
+const setConnectionStatusDisplay = (connected) => {
+    const icon = document.getElementById('connectionStatusIndicator');
+    const statusText = document.getElementById('connectionStatusText');
+    const urlText = document.getElementById('connectionStatusConnectedTo');
+
+    if (connected) {
+        icon.classList.remove('disconnected');
+        icon.classList.add('connected');
+        statusText.innerText = 'connected';
+        urlText.innerText = URL;
+    } else {
+        icon.classList.remove('connected');
+        icon.classList.add('disconnected');
+        statusText.innerText = 'disconnected';
+        urlText.innerText = '';
+    }
+};
+
+setConnectionStatusDisplay(false);

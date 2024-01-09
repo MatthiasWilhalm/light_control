@@ -34,9 +34,12 @@ class WebSocketServer(threading.Thread):
                 elif path == '/setall':
                     self.logger.log("Setting all lights to " + str(body), True)
                     self._send_serial_msg("set" + str(body))
-                elif path == 'echo':
+                elif path == '/echo':
                     print("Echo path: " + ws_path)
                     print("Echoing message: " + message)
+                    await self.broadcast(message)
+                elif path == '/nback':
+                    self.logger.log("Setting nback to " + str(body), True)
                     await self.broadcast(message)
                 else:
                     print("Unknown path: " + path)
