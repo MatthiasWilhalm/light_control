@@ -11,30 +11,41 @@ class WebSocketServer(threading.Thread):
         self.serial_connection = serial_connection
         self.logger = logger
         self.loop = None
+        self.active_connections = set()
         
-    async def _msg_received(self, websocket, path):
-        async for message in websocket:
-            res = json.loads(message)
-            path = res['path']
-            body = res['body']
-            
-            if path == '/setlight':
-                light_index = body['index']
-                light_state = 1 if body['state'] == True else 0
-                self.logger.log("Setting light " + str(light_index) + " to " + str(light_state), True)
-                self._send_serial_msg(str(light_index) + "," + str(light_state))
-            elif path == '/reset':
-                self.logger.log("Resetting lights", True)
-                self._send_serial_msg("reset")
-            elif path == '/setall':
-                self.logger.log("Setting all lights to " + str(body), True)
-                self._send_serial_msg("set" + str(body))
-            else:
-                print("Unknown path: " + path)
+    async def _msg_received(self, websocket, ws_path):
+        
+        self.active_connections.add(websocket)
+        
+        try:
+            async for message in websocket:
+                res = json.loads(message)
+                path = res['path']
+                body = res['body']
+                
+                if path == '/setlight':
+                    light_index = body['index']
+                    light_state = 1 if body['state'] == True else 0
+                    self.logger.log("Setting light " + str(light_index) + " to " + str(light_state), True)
+                    self._send_serial_msg(str(light_index) + "," + str(light_state))
+                elif path == '/reset':
+                    self.logger.log("Resetting lights", True)
+                    self._send_serial_msg("reset")
+                elif path == '/setall':
+                    self.logger.log("Setting all lights to " + str(body), True)
+                    self._send_serial_msg("set" + str(body))
+                elif path == 'echo':
+                    print("Echo path: " + ws_path)
+                    print("Echoing message: " + message)
+                    await self.broadcast(message)
+                else:
+                    print("Unknown path: " + path)
+        finally:
+            self.active_connections.remove(websocket)
                             
-    async def send_msg(self, msg):
-        async with websockets.connect('ws://' + self.host + ':' + str(self.port)) as websocket:
-            await websocket.send(msg)
+    async def broadcast(self, message):
+        if self.active_connections:
+            await asyncio.gather(*(ws.send(message) for ws in self.active_connections))
 
     def run(self):
         print("WebSocket server starting on " + self.host + ":" + str(self.port))
