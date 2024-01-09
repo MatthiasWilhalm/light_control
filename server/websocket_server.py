@@ -28,13 +28,13 @@ class WebSocketServer(threading.Thread):
                 if path == '/setlight':
                     light_index = body['index']
                     light_state = 1 if body['state'] == True else 0
-                    self.logger.log("Setting light " + str(light_index) + " to " + str(light_state), True)
+                    await self.log("Setting light " + str(light_index) + " to " + str(light_state), True)
                     self._send_serial_msg(str(light_index) + "," + str(light_state))
                 elif path == '/reset':
-                    self.logger.log("Resetting lights", True)
+                    await self.log("Resetting lights", True)
                     self._send_serial_msg("reset")
                 elif path == '/setall':
-                    self.logger.log("Setting all lights to " + str(body), True)
+                    await self.log("Setting all lights to " + str(body), True)
                     self._send_serial_msg("set" + str(body))
                 elif path == '/identify':
                     del self.active_connections[connection_id]
@@ -46,7 +46,7 @@ class WebSocketServer(threading.Thread):
                     print("Echoing message: " + message)
                     await self.broadcast(message)
                 elif path == '/nback':
-                    self.logger.log("Setting nback to " + str(body), True)
+                    await self.log("Setting nback to " + str(body), True)
                     await self.broadcast(message)
                 else:
                     print("Unknown path: " + path)
@@ -57,6 +57,16 @@ class WebSocketServer(threading.Thread):
     async def broadcast(self, message):
         if self.active_connections:
             await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values()))
+            
+    async def send(self, connection_id, message):
+        if connection_id in self.active_connections:
+            await self.active_connections[connection_id].send(message)
+        else:
+            print("Connection " + str(connection_id) + " not found")
+            
+    async def log(self, message, use_timestamp = False):
+        self.logger.log(message, use_timestamp)
+        await self.send('web-client', json.dumps({'path': '/log', 'body': message}))
     
     async def send_active_connections(self):
         print("Active connections:")

@@ -20,7 +20,8 @@
             <li><button id="triggerLeft">Left</button></li>
             <li><button id="triggerRight">Right</button></li>
             <li><label>Debug</label></li>
-            <li><button id="echo">send echo</button></li>
+            <li><button id="echo">Send Echo</button></li>
+            <li><button id="addLog">Dummy Log Msg</button></li>
             <li class="connectionStatus">
                 <div id="connectionStatusIndicator"></div>
                 <div>
@@ -125,6 +126,12 @@
                 </g>
             </svg>
         </div>    
+    </div>
+    <div id="logContainer">
+        <button id="toggleLog">Log</button>        
+        <div class="log">
+            <ul id="log"></ul>
+        </div>
     </div>
 </body>
 </html>

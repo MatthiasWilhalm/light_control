@@ -27,6 +27,9 @@ socket.addEventListener('message', (event) => {
     if(message.path === '/connections') {
         setNBackStatusDisplay(!!message.body?.includes('nback'));
     }
+    if(message.path === '/log') {
+        printLog(message.body);
+    }
 });
 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
@@ -59,6 +62,13 @@ document.getElementById('echo').addEventListener('click', () => {
     }));
 });
 
+var logCounter = 0;
+
+document.getElementById('addLog').addEventListener('click', () => {
+    printLog('log entry ' + logCounter);
+    logCounter++;
+});
+
 document.getElementById('startTask').addEventListener('click', () => {
     socket.send(JSON.stringify({
         path: '/nback',
@@ -83,6 +93,18 @@ document.getElementById('triggerRight').addEventListener('click', () => {
         body: 'triggerRight'
     }));
 });
+
+document.getElementById('toggleLog').addEventListener('click', () => {
+    const log = document.getElementById('log');
+    log.style.display = log.style.display === 'none' ? 'block' : 'none';
+});
+
+const printLog = (message) => {
+    const log = document.getElementById('log');
+    const logEntry = document.createElement('li');
+    logEntry.innerText = message;
+    log.appendChild(logEntry);
+}
 
 /**
  * creates a random path and sends it to the server
