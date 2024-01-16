@@ -4,6 +4,10 @@ const URL = 'ws://localhost:8765';
 
 const socket = new WebSocket(URL);
 
+var pathMode = 24;
+
+const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
+
 // Connection opened
 socket.addEventListener('open', (event) => {
     console.log('connected to WebSocket-Server');
@@ -42,7 +46,7 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
 
 document.getElementById('reset').addEventListener('click', () => {
     updateDisplayByPath([]);
-    sendReset();
+    sendPath([]);
 });
 
 document.getElementById('random').addEventListener('click', () => {
@@ -53,6 +57,16 @@ document.getElementById('all_on').addEventListener('click', () => {
     const path = new Array(24).fill(0).map((_, i) => i);
     updateDisplayByPath(path);
     sendPath(path);
+});
+
+document.getElementById('pathType').addEventListener('click', () => {
+    pathMode = pathMode === 24 ? 8 : 24;
+    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
+});
+
+document.getElementById('reverseOutput').addEventListener('click', () => {
+    const reverseOutput = document.getElementById('reverseOutput');
+    reverseOutput.classList.toggle('button-selected');
 });
 
 document.getElementById('echo').addEventListener('click', () => {
@@ -110,7 +124,7 @@ const printLog = (message) => {
  * creates a random path and sends it to the server
  */
 const sendRandomPath = () => {
-    const path = calcRandomPath();
+    const path = calcRandomPath(pathMode === 8);
     updateDisplayByPath(path);
     // sendPath(path);
     sendPath(path);
@@ -172,9 +186,14 @@ const sendReset = () => {
  * @param {number[]} path [0, 1, 2, 3, 4] (light indexes)
 */
 const sendPath = (path) => {
+    const body = new Array(24).fill(0).map((_, i) => {
+        if(isOutputReversed())
+            return path.includes(i) ? '0' : '1';
+        return path.includes(i) ? '1' : '0'
+    }).join('');
     socket.send(JSON.stringify({
         path: '/setall',
-        body: new Array(24).fill(0).map((_, i) => path.includes(i) ? '1' : '0').join('')
+        body
     }));
 }
 

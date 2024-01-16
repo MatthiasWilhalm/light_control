@@ -25,7 +25,7 @@ const getReducedNeighbours = (nodeIndex) => {
     return [...new Set(NODES[nodeIndex].neighbours)];
 };
 
-export const calcRandomPath = () => {
+export const calcRandomPath = (disablePathVariation) => {
     const path = [];
     let currentNode = 0;
     let nextNode = 0;
@@ -41,16 +41,20 @@ export const calcRandomPath = () => {
         i++;
         path.push(currentNode);
     }
-    return convertNodeIndexesToPath(path);
+    return convertNodeIndexesToPath(path, disablePathVariation);
 }
 
-const convertNodeIndexesToPath = (nodeIndexes) => {
+const convertNodeIndexesToPath = (nodeIndexes, disablePathVariation) => {
     const paths = [];
     // this is needed since we currently only connect to nodes that are next to each other
     // but we want to have some variation in the paths
     const getRandomOffset = () => Math.floor(Math.random() * 3);
     for (let i = 0; i < nodeIndexes.length - 1; i++) {
-        const path = nodeIndexesToPaths(nodeIndexes[i], nodeIndexes[i + 1], getRandomOffset());
+        const path = nodeIndexesToPaths(
+            nodeIndexes[i], 
+            nodeIndexes[i + 1], 
+            disablePathVariation ? 1 : getRandomOffset()
+        );
         paths.push(path);
     }
     return paths;
