@@ -9,7 +9,7 @@ from logger import Logger
 TCP_ADDRESS = 'localhost'
 TCP_PORT = 12345
 SERIAL_PORT = 'COM3'
-WEBSOCKET_ADDRESS = 'localhost'
+WEBSOCKET_ADDRESS = '0.0.0.0'
 WEBSOCKET_PORT = 8765
 LOG_FILEPATH = '../logs/log.txt'
 
@@ -61,8 +61,8 @@ if __name__ == '__main__':
     except:
         print("failed to connect to serial connection")
 
-    tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT, logger)
-    tcp_server_thread.start()
+    # tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT, logger)
+    # tcp_server_thread.start()
     
     websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection, logger)
     websocket_server_thread.start()

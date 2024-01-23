@@ -95,6 +95,12 @@ document.getElementById('startBaseline').addEventListener('click', () => {
         body: 'startBaseline'
     }));
 });
+document.getElementById('stopTask').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'stopTask'
+    }));
+});
 document.getElementById('triggerLeft').addEventListener('click', () => {
     socket.send(JSON.stringify({
         path: '/nback',
@@ -105,6 +111,12 @@ document.getElementById('triggerRight').addEventListener('click', () => {
     socket.send(JSON.stringify({
         path: '/nback',
         body: 'triggerRight'
+    }));
+});
+document.getElementById('updateSteps').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'nbackSteps:'+document.getElementById('nbackSteps').value
     }));
 });
 
