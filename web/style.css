@@ -107,7 +107,8 @@ li.connectionStatus {
     left: 0;
     width: 930px;
     height: 930px;
-    border: 1px solid #000000;
+    border: 2px solid #d6d6d6;
+    border-radius: 5px;
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
@@ -131,6 +132,10 @@ svg {
 
 .selected {
     stroke: #ff0000 !important;
+}
+
+.disabled {
+    stroke: #97979794 !important;
 }
 
 .button-selected {

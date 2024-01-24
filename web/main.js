@@ -47,6 +47,7 @@ socket.addEventListener('message', (event) => {
 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
+        if(light.classList.contains('disabled')) return;
         const nextState = !light.classList.contains('selected');
         updateDisplayLight(light, nextState);
         sendLightUpdate(i, nextState);
@@ -71,6 +72,15 @@ document.getElementById('all_on').addEventListener('click', () => {
 document.getElementById('pathType').addEventListener('click', () => {
     pathMode = pathMode === 24 ? 8 : 24;
     document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
+    const set24Paths = (is24PathMode) => {
+        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
+            if(is24PathMode)
+                return light.classList.remove('disabled');
+            if((i + 2) % 3)
+                light.classList.add('disabled');
+        });
+    } 
+    set24Paths(pathMode === 24);
 });
 
 document.getElementById('reverseOutput').addEventListener('click', () => {
