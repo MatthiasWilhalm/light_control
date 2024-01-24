@@ -1,3 +1,4 @@
+import { convertTrackerDataToCanvasCoordinates, saveCalibrationData } from "./CalibrationManager.js";
 import { calcRandomPath } from "./PathGenerator.js";
 
 const URL = 'ws://localhost:8765';
@@ -143,6 +144,14 @@ document.getElementById('updateSteps').addEventListener('click', () => {
     }));
 });
 
+document.getElementById('startCalibration').addEventListener('click', () => {
+    const calibrate = () => {
+        // add calibrate code here
+    };
+    startTimer(calibrate, "calibrating");
+    
+});
+
 document.getElementById('toggleLog').addEventListener('click', () => {
     const log = document.getElementById('log');
     log.style.display = log.style.display === 'none' ? 'block' : 'none';
@@ -157,6 +166,23 @@ document.getElementById('testCanvas').addEventListener('click', () => {
 document.getElementById('resetCanvas').addEventListener('click', () => {
     updateCanvas([]);
 });
+
+document.getElementById('testCalibration').addEventListener('click', () => {
+    saveCalibrationData({max: 4, min: -4});
+    const vals = [
+        convertTrackerDataToCanvasCoordinates(0, 8, 930, 30, 0.5),
+        convertTrackerDataToCanvasCoordinates(0, -8, 930, 30, 0.5),
+        convertTrackerDataToCanvasCoordinates(-4, 0, 930, 30, 0.5),
+        convertTrackerDataToCanvasCoordinates(4, 0, 930, 30, 0.5),
+        convertTrackerDataToCanvasCoordinates(0, 0, 930, 30, 0.5),
+    ]
+    vals.forEach((val, i) => console.log(`val${i}`, val));
+    updateCanvas(vals);
+});
+
+// document.getElementById("trackerMap").addEventListener('click', (e) => {
+//     console.log(e.offsetX, e.offsetY);
+// });
 
 
 
@@ -194,7 +220,8 @@ const handleTrackerData = (data) => {
     let xValue = parseFloat(x)*canvasSize/4 + canvasSize/4;
     let yValue = parseFloat(z)*canvasSize/4 + canvasSize/4;
 
-    updateCanvas([{x: xValue, y: yValue}]);
+    // updateCanvas([{x: xValue, y: yValue}]);
+    updateCanvas([convertTrackerDataToCanvasCoordinates(x, z, canvasSize, 30, 2)]);
     trackerDebugData.innerText = JSON.stringify({name, x, y, z, rx, ry, rz, rw, xValue, yValue}, null, 2);
 }
 
@@ -322,6 +349,32 @@ const updateCanvas = (data) => {
         ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
         ctx.stroke();
     });
+}
+
+const startTimer = (next, finnishText = "done") => {
+    const timer = document.getElementById('timer');
+    timer.innerText = 10;
+    timer.style.display = 'block';
+    let durationInSeconds = 10;
+    const updateTimer = () => {
+        if(durationInSeconds >= 0)
+            timer.innerText = durationInSeconds;
+        durationInSeconds--;
+        if(durationInSeconds === -1) {
+            timer.style.fontSize = '100pt';
+            timer.innerText = finnishText;
+            next?.();
+            return;
+        }
+        if(durationInSeconds < -3) {
+            timer.innerText = 0;
+            timer.style.display = 'none';
+            timer.style.fontSize = '200pt';
+            clearInterval(interval);
+        }
+    };
+    updateTimer();
+    setInterval(updateTimer, 1000);
 }
 
 setConnectionStatusDisplay(false);

@@ -24,11 +24,14 @@
             <li><button id="triggerRight">Right</button></li>
             <li><input id="nbackSteps" value="1" type="number" min="0"></li>
             <li><button id="updateSteps">Update Steps</button></li>
+            <li><label>Tracker</label></li>
+            <li><button id="startCalibration">Start Calibration</button></li>
             <li><label>Debug</label></li>
             <li><button id="echo">Send Echo</button></li>
             <li><button id="addLog">Dummy Log Msg</button></li>
             <li><button id="testCanvas">Test Canvas</button></li>
             <li><button id="resetCanvas">Reset Canvas</button></li>
+            <li><button id="testCalibration">Test Calibration</button></li>
             <li class="connectionStatus">
                 <div id="connectionStatusIndicator"></div>
                 <div>
@@ -42,6 +45,7 @@
         <div class="light-map">
             <canvas id="trackerMap" width="930px" height="930px"></canvas>
             <code id="trackerDebugData"></code>
+            <p id="timer" style="display: none;"></p>
             <svg width="100%" height="100%" viewBox="0 0 1029 1029" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
                 <g transform="matrix(1,0,0,1,-2190,-18)">
                     <g transform="matrix(1,0,0,1,-0.59272,0)">

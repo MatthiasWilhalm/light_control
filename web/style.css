@@ -112,12 +112,31 @@ li.connectionStatus {
     left: 50%;
     top: 50%;
     transform: translate(-50%, -50%);
-
+    background-color: rgba(0, 0, 0, 0);
+    z-index: 1;
+    pointer-events: none;
 }
 .light-map code {
     position: absolute;
     height: 200px;
     width: 400px;
+}
+
+.light-map #timer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    pointer-events: none;
+    font-size: 200pt;
+    text-align: center;
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.601);
 }
 
 .element {
@@ -128,6 +147,7 @@ svg {
     width: 100%;
     height: 100%;
     rotate: 180deg;
+    position: absolute;
 }
 
 .selected {
