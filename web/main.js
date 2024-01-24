@@ -140,7 +140,7 @@ document.getElementById('toggleLog').addEventListener('click', () => {
 
 document.getElementById('testCanvas').addEventListener('click', () => {
     updateCanvas([
-        {x: Math.random()*1000, y: Math.random()*1000}
+        {x: Math.random()*930, y: Math.random()*930}
     ]);
 });
 
