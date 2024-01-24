@@ -4,6 +4,8 @@ const URL = 'ws://localhost:8765';
 
 const socket = new WebSocket(URL);
 
+const trackerMaxMinValues = {};
+
 var pathMode = 24;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
@@ -26,14 +28,21 @@ socket.addEventListener('close', (event) => {
 
 // Listen for messages
 socket.addEventListener('message', (event) => {
-    console.log('Message from server: ', event.data);
     const message = JSON.parse(event.data);
-    if(message.path === '/connections') {
-        setNBackStatusDisplay(!!message.body?.includes('nback'));
-    }
-    if(message.path === '/log') {
-        printLog(message.body);
-    }
+    if(!["/log", "/trackerdata"].includes(message.path))
+        console.log('Message from server: ', event.data);
+    switch(message.path) {
+        case '/connections':
+            setNBackStatusDisplay(!!message.body?.includes('nback'));
+            setTrackerStatusDisplay(!!message.body?.includes('tracker'));
+            break;
+        case '/log':
+            printLog(message.body);
+            break;
+        case '/trackerdata':
+            handleTrackerData(message.body);
+            break;
+    }    
 });
 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
@@ -79,7 +88,11 @@ document.getElementById('echo').addEventListener('click', () => {
 var logCounter = 0;
 
 document.getElementById('addLog').addEventListener('click', () => {
-    printLog('log entry ' + logCounter);
+    socket.send(JSON.stringify({
+        path: '/log',
+        body: 'log entry ' + logCounter
+    }));
+    // printLog('log entry ' + logCounter);
     logCounter++;
 });
 
@@ -125,11 +138,54 @@ document.getElementById('toggleLog').addEventListener('click', () => {
     log.style.display = log.style.display === 'none' ? 'block' : 'none';
 });
 
+document.getElementById('testCanvas').addEventListener('click', () => {
+    updateCanvas([
+        {x: Math.random()*1000, y: Math.random()*1000}
+    ]);
+});
+
+document.getElementById('resetCanvas').addEventListener('click', () => {
+    updateCanvas([]);
+});
+
+
+
 const printLog = (message) => {
     const log = document.getElementById('log');
+    if(log.children.length > 500) {
+        log.removeChild(log.children[0]);
+    }
     const logEntry = document.createElement('li');
     logEntry.innerText = message;
     log.appendChild(logEntry);
+}
+
+const handleTrackerData = (data) => {
+    const trackerDebugData = document.getElementById('trackerDebugData');
+    const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
+    // for min max values
+    // trackerMaxMinValues[name] = trackerMaxMinValues[name] || {x: {min: 0, max: 0}, y: {min: 0, max: 0}, z: {min: 0, max: 0}};
+    // const maxMinValues = trackerMaxMinValues[name];
+    // if(x !== undefined && x !==null) {
+    //     maxMinValues.x.min = Math.min(maxMinValues.x.min, x);
+    //     maxMinValues.x.max = Math.max(maxMinValues.x.max, x);
+    // }
+    // if(y !== undefined && y !==null) {
+    //     maxMinValues.y.min = Math.min(maxMinValues.y.min, y);
+    //     maxMinValues.y.max = Math.max(maxMinValues.y.max, y);
+    // }
+    // if(z !== undefined && z !==null) {
+    //     maxMinValues.z.min = Math.min(maxMinValues.z.min, z);
+    //     maxMinValues.z.max = Math.max(maxMinValues.z.max, z);
+    // }
+    // trackerDebugData.innerText = JSON.stringify(trackerMaxMinValues, null, 2);
+    // log current values as json
+    const canvasSize = 930;
+    let xValue = parseFloat(x)*canvasSize/4 + canvasSize/4;
+    let yValue = parseFloat(z)*canvasSize/4 + canvasSize/4;
+
+    updateCanvas([{x: xValue, y: yValue}]);
+    trackerDebugData.innerText = JSON.stringify({name, x, y, z, rx, ry, rz, rw, xValue, yValue}, null, 2);
 }
 
 /**
@@ -214,6 +270,7 @@ const setConnectionStatusDisplay = (connected) => {
     const statusText = document.getElementById('connectionStatusText');
     const urlText = document.getElementById('connectionStatusConnectedTo');
     const statusNBack = document.getElementById('connectionStatusNBack');
+    const statusTracker = document.getElementById('connectionStatusTracker');
 
     if (connected) {
         icon.classList.remove('disconnected');
@@ -222,6 +279,7 @@ const setConnectionStatusDisplay = (connected) => {
         urlText.innerText = URL;
         urlText.style.display = 'block';
         statusNBack.style.display = 'block';
+        statusTracker.style.display = 'block';
     } else {
         icon.classList.remove('connected');
         icon.classList.add('disconnected');
@@ -229,6 +287,7 @@ const setConnectionStatusDisplay = (connected) => {
         urlText.innerText = '';
         urlText.style.display = 'none';
         statusNBack.style.display = 'none';
+        statusTracker.style.display = 'none';
     }
 };
 
@@ -236,5 +295,23 @@ const setNBackStatusDisplay = (connected) => {
     const statusNBack = document.getElementById('connectionStatusNBack');
     statusNBack.innerText = 'N-Back:' + (connected ? 'connected' : 'disconnected');
 };
+
+const setTrackerStatusDisplay = (connected) => {
+    const statusTracker = document.getElementById('connectionStatusTracker');
+    statusTracker.innerText = 'Tracker:' + (connected ? 'connected' : 'disconnected');
+};
+
+const updateCanvas = (data) => {
+    const canvas = document.getElementById('trackerMap');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    data.forEach((point) => {
+        ctx.beginPath();
+        ctx.strokeStyle = 'green';
+        ctx.lineWidth = 2;
+        ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+        ctx.stroke();
+    });
+}
 
 setConnectionStatusDisplay(false);

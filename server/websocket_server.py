@@ -48,6 +48,8 @@ class WebSocketServer(threading.Thread):
                 elif path == '/nback':
                     await self.log("Setting nback to " + str(body), True)
                     await self.broadcast(message)
+                elif path == '/log' or path == '/trackerdata':
+                    await self.send('web-client', json.dumps({'path': path, 'body': body}))
                 else:
                     print("Unknown path: " + path)
         finally:

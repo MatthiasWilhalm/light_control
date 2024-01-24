@@ -69,7 +69,8 @@ li.connectionStatus {
 }
 
 #connectionStatusConnectedTo,
-#connectionStatusNBack {
+#connectionStatusNBack,
+#connectionStatusTracker {
     font-size: 12px;
     padding: 0;
     padding-top: 2px;
@@ -98,7 +99,26 @@ li.connectionStatus {
 .light-map {
     height: 95vh;
     margin-top: 20px;
+    position: relative;
 }
+.light-map canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 930px;
+    height: 930px;
+    border: 1px solid #000000;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+}
+.light-map code {
+    position: absolute;
+    height: 200px;
+    width: 400px;
+}
+
 .element {
     border: 1px solid #000000;
 }
