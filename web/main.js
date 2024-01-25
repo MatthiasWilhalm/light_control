@@ -13,6 +13,7 @@ var pathMode = 24;
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
 var allowTracking = true;
+var useTrackingForLights = false;
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -90,6 +91,12 @@ document.getElementById('pathType').addEventListener('click', () => {
 document.getElementById('reverseOutput').addEventListener('click', () => {
     const reverseOutput = document.getElementById('reverseOutput');
     reverseOutput.classList.toggle('button-selected');
+});
+
+document.getElementById('useTrackingForLights').addEventListener('click', () => {
+    const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
+    useTrackingForLightsElem.classList.toggle('button-selected');
+    useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
 });
 
 document.getElementById('echo').addEventListener('click', () => {
