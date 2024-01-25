@@ -175,6 +175,10 @@ svg {
     stroke: #ff0000 !important;
 }
 
+.active {
+    fill: #00eeff !important;
+}
+
 .disabled {
     stroke: #97979794 !important;
 }

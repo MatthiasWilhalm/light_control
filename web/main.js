@@ -1,4 +1,4 @@
-import { convertTrackerDataToCanvasCoordinates, getCalibrationData, saveCalibrationData } from "./CalibrationManager.js";
+import { convertTrackerDataToCanvasCoordinates, getCalibrationData, getCurrentNodeInRange, getNodeOnCanvas, saveCalibrationData } from "./CalibrationManager.js";
 import { calcRandomPath } from "./PathGenerator.js";
 
 const URL = 'ws://localhost:8765';
@@ -11,6 +11,8 @@ const currentTrackerValues = {};
 var pathMode = 24;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
+
+var allowTracking = true;
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -145,6 +147,15 @@ document.getElementById('updateSteps').addEventListener('click', () => {
     }));
 });
 
+document.getElementById('toggleTracking').addEventListener('click', () => {
+    allowTracking = !allowTracking;
+    if(allowTracking) {
+        document.getElementById('toggleTracking').innerText = 'Disable Tracking';
+    } else {
+        document.getElementById('toggleTracking').innerText = 'Enable Tracking';
+    }
+});
+
 document.getElementById('startCalibration').addEventListener('click', async () => {
     if(!mainTrackerName || !currentTrackerValues) return;
 
@@ -187,6 +198,15 @@ document.getElementById('testCalibration').addEventListener('click', () => {
     updateCanvas(vals);
 });
 
+document.getElementById('testNodes').addEventListener('click', () => {
+    const nodesToDraw = [];
+    for (let i = 0; i < 5; i++) {
+        nodesToDraw.push(getNodeOnCanvas(i, 930, 30));
+    }
+    console.log(nodesToDraw);
+    updateCanvas(nodesToDraw);
+});
+
 document.getElementById('resetCalibrationdata').addEventListener('click', () => {
     saveCalibrationData(null);
     syncCalibrationDataDisplay();
@@ -209,6 +229,7 @@ const printLog = (message) => {
 }
 
 const handleTrackerData = (data) => {
+    if(!allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
     currentTrackerValues[name] = {x, y, z, rx, ry, rz, rw};
@@ -221,10 +242,28 @@ const handleTrackerData = (data) => {
 
     // updateCanvas([{x: xValue, y: yValue}]);
     const coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), canvasSize, 30, 2);
-    trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords}, null, 2);
-    if(!coords) return;
+    
+    if(!coords) {
+        trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords}, null, 2);
+        return;
+    }
+    const nodesInRange = getCurrentNodeInRange(coords.x, coords.y);
+    trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords, nodesInRange}, null, 2);
+    activateSVGNodes([nodesInRange]);
     updateCanvas([coords]);
 }
+
+const activateSVGNodes = (activeNodes) => {
+    const svgNodes = document.getElementsByTagName('circle');
+    for (let i = 0; i < svgNodes.length; i++) {
+        const node = svgNodes[i];
+        if (activeNodes.includes(i)) {
+            node.classList.add('active');
+        } else {
+            node.classList.remove('active');
+        }
+    }
+};
 
 /**
  * creates a random path and sends it to the server
