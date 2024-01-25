@@ -16,6 +16,7 @@ var allowTracking = true;
 var useTrackingForLights = false;
 var currentPath = null; // is used if useTrackingForLights is true
 var currentNodes = null; // is used if useTrackingForLights is true
+var activePaths = null; // is used if useTrackingForLights is true
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -104,12 +105,16 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     document.getElementById('all_on').disabled = useTrackingForLights;
     document.getElementById('random').disabled = useTrackingForLights;
     if(useTrackingForLights) {
-        // reset lights
-        updateDisplayByPath([]);
-        sendPath([]);
         currentNodes = calcRandomNodes();
         currentPath = calcRandomPath(pathMode === 8, currentNodes);
+    } else {
+        currentNodes = null;
+        currentPath = null;
     }
+    // reset lights
+    updateDisplayByPath([]);
+    sendPath([]);
+
 });
 
 document.getElementById('echo').addEventListener('click', () => {
@@ -312,9 +317,15 @@ const updatePathWithTracking = (nodeInRange) => {
             if(!currentNodes.includes(currentNode))
                 currentNodes.unshift(currentNode);
             updateDisplayByPath([]);
+            activePaths = null;
         }
+        if(!activePaths)
+            activePaths = [];
         const nextPath = getNextPath(currentPath, currentNode, reversingPath);
-        updateDisplayByPath(currentPath, nextPath);
+        if(!activePaths.includes(nextPath))
+            activePaths.push(nextPath);
+        console.log('activePaths', activePaths);
+        updateDisplayByPath(currentPath, activePaths);
         sendPath(currentPath);
     }
 };
@@ -362,12 +373,12 @@ const updateDisplayLight = (lightHTMLElement, state, className = 'selected') => 
  * by a given path
  * @param {number[]} paths 
  */
-const updateDisplayByPath = (paths, highlightedPath) => {
+const updateDisplayByPath = (paths, highlightedPaths) => {
     Array.from(document.getElementsByTagName('path'))
         .forEach((light, i) => {
-            if(!highlightedPath)
+            if(!highlightedPaths)
                 return updateDisplayLight(light, paths.includes(i))
-            updateDisplayLight(light, paths.includes(i), i === highlightedPath ? 'active-stroke' : 'selected');
+            updateDisplayLight(light, paths.includes(i), highlightedPaths.includes(i) ? 'active-stroke' : 'selected');
         });
 };
 
