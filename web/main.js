@@ -97,6 +97,14 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
     useTrackingForLightsElem.classList.toggle('button-selected');
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
+    document.getElementById('reset').disabled = useTrackingForLights;
+    document.getElementById('all_on').disabled = useTrackingForLights;
+    document.getElementById('random').disabled = useTrackingForLights;
+    if(useTrackingForLights) {
+        // reset lights
+        updateDisplayByPath([]);
+        sendPath([]);
+    }
 });
 
 document.getElementById('echo').addEventListener('click', () => {
@@ -214,14 +222,36 @@ document.getElementById('testNodes').addEventListener('click', () => {
     updateCanvas(nodesToDraw);
 });
 
+var isTrackingEmulationActive = false;
+
+document.getElementById('emulateTracking').addEventListener('click', () => {
+    const trackerMap = document.getElementById("trackerMap");
+
+    if(isTrackingEmulationActive) {
+        isTrackingEmulationActive = false;
+        document.getElementById('emulateTracking').classList.remove('button-selected');
+        trackerMap.removeEventListener("mousemove", emulateTrackerData);
+        trackerMap.style.pointerEvents = 'none';
+        return;
+    }
+    isTrackingEmulationActive = true;
+    trackerMap.addEventListener("mousemove", emulateTrackerData);
+    document.getElementById('emulateTracking').classList.add('button-selected');
+    trackerMap.style.pointerEvents = 'auto';
+});
+
 document.getElementById('resetCalibrationdata').addEventListener('click', () => {
     saveCalibrationData(null);
     syncCalibrationDataDisplay();
 });
 
-// document.getElementById("trackerMap").addEventListener('click', (e) => {
-//     console.log(e.offsetX, e.offsetY);
-// });
+const emulateTrackerData = (e) => {
+    const canvas = document.getElementById('trackerMap');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    handleTrackerData(`emulated,${x},${y},0,0,0,0,0`, true);
+}
 
 
 
@@ -235,7 +265,7 @@ const printLog = (message) => {
     log.appendChild(logEntry);
 }
 
-const handleTrackerData = (data) => {
+const handleTrackerData = (data, skipConversion) => {
     if(!allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
@@ -244,11 +274,12 @@ const handleTrackerData = (data) => {
     if(mainTrackerName === '')
         mainTrackerName = name;
     const canvasSize = 930;
-    // let xValue = parseFloat(x)*canvasSize/4 + canvasSize/4;
-    // let yValue = parseFloat(z)*canvasSize/4 + canvasSize/4;
-
-    // updateCanvas([{x: xValue, y: yValue}]);
-    const coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), canvasSize, 30, 2);
+    let coords;
+    if(skipConversion) {
+        coords = {x, y};
+    } else {
+        coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), canvasSize, 30, 2);
+    }
     
     if(!coords) {
         trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords}, null, 2);

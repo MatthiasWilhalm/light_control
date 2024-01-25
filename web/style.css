@@ -135,7 +135,7 @@ li code {
     transform: translate(-50%, -50%);
     background-color: rgba(0, 0, 0, 0);
     z-index: 1;
-    pointer-events: none;
+    /* pointer-events: none; */
 }
 .light-map code {
     position: absolute;
