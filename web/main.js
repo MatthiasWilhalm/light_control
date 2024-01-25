@@ -1,5 +1,5 @@
 import { convertTrackerDataToCanvasCoordinates, getCalibrationData, getCurrentNodeInRange, getNodeOnCanvas, saveCalibrationData } from "./CalibrationManager.js";
-import { calcRandomPath } from "./PathGenerator.js";
+import { calcRandomNodes, calcRandomPath, getNextPath } from "./PathGenerator.js";
 
 const URL = 'ws://localhost:8765';
 
@@ -14,6 +14,8 @@ const isOutputReversed = () => document.getElementById('reverseOutput').classLis
 
 var allowTracking = true;
 var useTrackingForLights = false;
+var currentPath = null; // is used if useTrackingForLights is true
+var currentNodes = null; // is used if useTrackingForLights is true
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -97,6 +99,7 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
     useTrackingForLightsElem.classList.toggle('button-selected');
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
+
     document.getElementById('reset').disabled = useTrackingForLights;
     document.getElementById('all_on').disabled = useTrackingForLights;
     document.getElementById('random').disabled = useTrackingForLights;
@@ -104,6 +107,8 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
         // reset lights
         updateDisplayByPath([]);
         sendPath([]);
+        currentNodes = calcRandomNodes();
+        currentPath = calcRandomPath(pathMode === 8, currentNodes);
     }
 });
 
@@ -288,8 +293,31 @@ const handleTrackerData = (data, skipConversion) => {
     const nodesInRange = getCurrentNodeInRange(coords.x, coords.y);
     trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords, nodesInRange}, null, 2);
     activateSVGNodes([nodesInRange]);
+    updatePathWithTracking(nodesInRange);
     updateCanvas([coords]);
 }
+
+var reversingPath = false;
+
+const updatePathWithTracking = (nodeInRange) => {
+    if(!currentNodes || !currentPath) return;
+    const currentNode = currentNodes[0];
+    if(nodeInRange === currentNode) {
+        currentNodes.shift();
+        if(currentNodes.length === 0) {
+            reversingPath = !reversingPath;
+            currentNodes = calcRandomNodes();
+            currentPath = calcRandomPath(pathMode === 8, currentNodes);
+            currentNodes = reversingPath ? currentNodes.reverse() : currentNodes;
+            if(!currentNodes.includes(currentNode))
+                currentNodes.unshift(currentNode);
+            updateDisplayByPath([]);
+        }
+        const nextPath = getNextPath(currentPath, currentNode, reversingPath);
+        updateDisplayByPath(currentPath, nextPath);
+        sendPath(currentPath);
+    }
+};
 
 const activateSVGNodes = (activeNodes) => {
     const svgNodes = document.getElementsByTagName('circle');
@@ -318,12 +346,14 @@ const sendRandomPath = () => {
  * @param {HTMLElement} lightHTMLElement 
  * @param {boolean} state 
  */
-const updateDisplayLight = (lightHTMLElement, state) => {
-    const className = 'selected';
+const updateDisplayLight = (lightHTMLElement, state, className = 'selected') => {
     if (state) {
         lightHTMLElement.classList.add(className);
     } else {
         lightHTMLElement.classList.remove(className);
+        // qick fix to remove the active-stroke class
+        lightHTMLElement.classList.remove('active-stroke');
+        lightHTMLElement.classList.remove('selected');
     }
 };
 
@@ -332,11 +362,13 @@ const updateDisplayLight = (lightHTMLElement, state) => {
  * by a given path
  * @param {number[]} paths 
  */
-const updateDisplayByPath = (paths) => {
+const updateDisplayByPath = (paths, highlightedPath) => {
     Array.from(document.getElementsByTagName('path'))
-        .forEach((light, i) => 
-            updateDisplayLight(light, paths.includes(i))
-        );
+        .forEach((light, i) => {
+            if(!highlightedPath)
+                return updateDisplayLight(light, paths.includes(i))
+            updateDisplayLight(light, paths.includes(i), i === highlightedPath ? 'active-stroke' : 'selected');
+        });
 };
 
 

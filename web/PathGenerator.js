@@ -25,7 +25,7 @@ const getReducedNeighbours = (nodeIndex) => {
     return [...new Set(NODES[nodeIndex].neighbours)];
 };
 
-export const calcRandomPath = (disablePathVariation) => {
+export const calcRandomNodes = () => {
     const path = [];
     let currentNode = 0;
     let nextNode = 0;
@@ -41,8 +41,26 @@ export const calcRandomPath = (disablePathVariation) => {
         i++;
         path.push(currentNode);
     }
+    return path;
+};
+
+
+export const calcRandomPath = (disablePathVariation, path = calcRandomNodes()) => {
     return convertNodeIndexesToPath(path, disablePathVariation);
 }
+
+export const getNextPath = (paths, currentNode, reverse) => {
+    let ret = null;
+    NODES[currentNode].neighbours.forEach((node, index) => {
+        const orderedPaths = reverse ? NODES[currentNode].paths.slice().reverse() : NODES[currentNode].paths;
+        if (paths.includes(orderedPaths[index])) {
+            ret = orderedPaths[index];
+            return;
+        }
+    });
+    return ret;
+}
+
 
 const convertNodeIndexesToPath = (nodeIndexes, disablePathVariation) => {
     const paths = [];
