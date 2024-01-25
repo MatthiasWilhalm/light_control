@@ -15,7 +15,7 @@ export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBo
     //convert x, y origin from center of screen to top left corner
     const normX = x + range / 2;
     const normY = y * verticalScale + range / 2;
-    console.log(normX, normY, range, canvasRange);
+    // console.log(normX, normY, range, canvasRange);
     // scale x, y to canvas size
     const xCanvas = normX * canvasRange / range + canvasBorderOffset;
     const yCanvas = normY * canvasRange / range + canvasBorderOffset;

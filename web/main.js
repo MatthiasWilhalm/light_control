@@ -1,11 +1,12 @@
-import { convertTrackerDataToCanvasCoordinates, saveCalibrationData } from "./CalibrationManager.js";
+import { convertTrackerDataToCanvasCoordinates, getCalibrationData, saveCalibrationData } from "./CalibrationManager.js";
 import { calcRandomPath } from "./PathGenerator.js";
 
 const URL = 'ws://localhost:8765';
 
 const socket = new WebSocket(URL);
 
-const trackerMaxMinValues = {};
+var mainTrackerName = '';
+const currentTrackerValues = {};
 
 var pathMode = 24;
 
@@ -144,12 +145,18 @@ document.getElementById('updateSteps').addEventListener('click', () => {
     }));
 });
 
-document.getElementById('startCalibration').addEventListener('click', () => {
-    const calibrate = () => {
-        // add calibrate code here
-    };
-    startTimer(calibrate, "calibrating");
-    
+document.getElementById('startCalibration').addEventListener('click', async () => {
+    if(!mainTrackerName || !currentTrackerValues) return;
+
+    await startTimer("calibrating");
+    const val1 = parseFloat(currentTrackerValues[mainTrackerName].x);
+    await startTimer("calibrating");
+    const val2 = parseFloat(currentTrackerValues[mainTrackerName].x);
+
+    const max = Math.max(val1, val2);
+    const min = Math.min(val1, val2);
+    saveCalibrationData({max, min});
+    syncCalibrationDataDisplay();
 });
 
 document.getElementById('toggleLog').addEventListener('click', () => {
@@ -180,6 +187,11 @@ document.getElementById('testCalibration').addEventListener('click', () => {
     updateCanvas(vals);
 });
 
+document.getElementById('resetCalibrationdata').addEventListener('click', () => {
+    saveCalibrationData(null);
+    syncCalibrationDataDisplay();
+});
+
 // document.getElementById("trackerMap").addEventListener('click', (e) => {
 //     console.log(e.offsetX, e.offsetY);
 // });
@@ -199,30 +211,19 @@ const printLog = (message) => {
 const handleTrackerData = (data) => {
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
-    // for min max values
-    // trackerMaxMinValues[name] = trackerMaxMinValues[name] || {x: {min: 0, max: 0}, y: {min: 0, max: 0}, z: {min: 0, max: 0}};
-    // const maxMinValues = trackerMaxMinValues[name];
-    // if(x !== undefined && x !==null) {
-    //     maxMinValues.x.min = Math.min(maxMinValues.x.min, x);
-    //     maxMinValues.x.max = Math.max(maxMinValues.x.max, x);
-    // }
-    // if(y !== undefined && y !==null) {
-    //     maxMinValues.y.min = Math.min(maxMinValues.y.min, y);
-    //     maxMinValues.y.max = Math.max(maxMinValues.y.max, y);
-    // }
-    // if(z !== undefined && z !==null) {
-    //     maxMinValues.z.min = Math.min(maxMinValues.z.min, z);
-    //     maxMinValues.z.max = Math.max(maxMinValues.z.max, z);
-    // }
-    // trackerDebugData.innerText = JSON.stringify(trackerMaxMinValues, null, 2);
-    // log current values as json
+    currentTrackerValues[name] = {x, y, z, rx, ry, rz, rw};
+    // TODO: change if we have multiple trackers
+    if(mainTrackerName === '')
+        mainTrackerName = name;
     const canvasSize = 930;
-    let xValue = parseFloat(x)*canvasSize/4 + canvasSize/4;
-    let yValue = parseFloat(z)*canvasSize/4 + canvasSize/4;
+    // let xValue = parseFloat(x)*canvasSize/4 + canvasSize/4;
+    // let yValue = parseFloat(z)*canvasSize/4 + canvasSize/4;
 
     // updateCanvas([{x: xValue, y: yValue}]);
-    updateCanvas([convertTrackerDataToCanvasCoordinates(x, z, canvasSize, 30, 2)]);
-    trackerDebugData.innerText = JSON.stringify({name, x, y, z, rx, ry, rz, rw, xValue, yValue}, null, 2);
+    const coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), canvasSize, 30, 2);
+    trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords}, null, 2);
+    if(!coords) return;
+    updateCanvas([coords]);
 }
 
 /**
@@ -351,30 +352,44 @@ const updateCanvas = (data) => {
     });
 }
 
-const startTimer = (next, finnishText = "done") => {
-    const timer = document.getElementById('timer');
-    timer.innerText = 10;
-    timer.style.display = 'block';
-    let durationInSeconds = 10;
-    const updateTimer = () => {
-        if(durationInSeconds >= 0)
-            timer.innerText = durationInSeconds;
-        durationInSeconds--;
-        if(durationInSeconds === -1) {
-            timer.style.fontSize = '100pt';
-            timer.innerText = finnishText;
-            next?.();
-            return;
-        }
-        if(durationInSeconds < -3) {
-            timer.innerText = 0;
-            timer.style.display = 'none';
-            timer.style.fontSize = '200pt';
-            clearInterval(interval);
-        }
-    };
-    updateTimer();
-    setInterval(updateTimer, 1000);
+const syncCalibrationDataDisplay = () => {
+    const display = document.getElementById('calibrationDataDisplay');
+    const data = getCalibrationData();
+    if(!data) {
+        display.innerText = 'no calibration data';
+        return;
+    }
+    display.innerText = `min: ${data.min}, max: ${data.max}`;
 }
 
+const startTimer = (finnishText = "done") => {
+    let interval;
+    return new Promise((resolve) => {
+        const timer = document.getElementById('timer');
+        timer.innerText = 10;
+        timer.style.display = 'block';
+        let durationInSeconds = 10;
+        const updateTimer = () => {
+            if(durationInSeconds >= 0)
+                timer.innerText = durationInSeconds;
+            durationInSeconds--;
+            if(durationInSeconds === -1) {
+                timer.style.fontSize = '100pt';
+                timer.innerText = finnishText;
+                return;
+            }
+            if(durationInSeconds < -2) {
+                timer.innerText = 0;
+                timer.style.display = 'none';
+                timer.style.fontSize = '200pt';
+                clearInterval(interval);
+                resolve();
+            }
+        };
+        updateTimer();
+        interval = setInterval(updateTimer, 1000);
+    });
+}
+
+syncCalibrationDataDisplay();
 setConnectionStatusDisplay(false);

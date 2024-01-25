@@ -9,30 +9,34 @@
 </head>
 <body>
     <div class="grid">
-        <ul>
-            <li><label>Lights</label></li>
-            <li><button id="reset">All OFF</button></li>
-            <li><button id="all_on">All ON</button></li>
-            <li><button id="random">Random Path</button></li>
-            <li><button id="pathType">Active Paths: 24</button></li>
-            <li><button id="reverseOutput">Reverse Output</button></li>
-            <li><label>N-Back</label></li>
-            <li><button id="startTask">Start Task</button></li>
-            <li><button id="startBaseline">Start Baseline Task</button></li>
-            <li><button id="stopTask">Stop Task</button></li>
-            <li><button id="triggerLeft">Left</button></li>
-            <li><button id="triggerRight">Right</button></li>
-            <li><input id="nbackSteps" value="1" type="number" min="0"></li>
-            <li><button id="updateSteps">Update Steps</button></li>
-            <li><label>Tracker</label></li>
-            <li><button id="startCalibration">Start Calibration</button></li>
-            <li><label>Debug</label></li>
-            <li><button id="echo">Send Echo</button></li>
-            <li><button id="addLog">Dummy Log Msg</button></li>
-            <li><button id="testCanvas">Test Canvas</button></li>
-            <li><button id="resetCanvas">Reset Canvas</button></li>
-            <li><button id="testCalibration">Test Calibration</button></li>
-            <li class="connectionStatus">
+        <div id="sidepanel">
+            <ul>
+                <li><label>Lights</label></li>
+                <li><button id="reset">All OFF</button></li>
+                <li><button id="all_on">All ON</button></li>
+                <li><button id="random">Random Path</button></li>
+                <li><button id="pathType">Active Paths: 24</button></li>
+                <li><button id="reverseOutput">Reverse Output</button></li>
+                <li><label>N-Back</label></li>
+                <li><button id="startTask">Start Task</button></li>
+                <li><button id="startBaseline">Start Baseline Task</button></li>
+                <li><button id="stopTask">Stop Task</button></li>
+                <li><button id="triggerLeft">Left</button></li>
+                <li><button id="triggerRight">Right</button></li>
+                <li><input id="nbackSteps" value="1" type="number" min="0"></li>
+                <li><button id="updateSteps">Update Steps</button></li>
+                <li><label>Tracker</label></li>
+                <li><button id="startCalibration">Start Calibration</button></li>
+                <li><code id="calibrationDataDisplay"></code></li>
+                <li><label>Debug</label></li>
+                <li><button id="echo">Send Echo</button></li>
+                <li><button id="addLog">Dummy Log Msg</button></li>
+                <li><button id="testCanvas">Test Canvas</button></li>
+                <li><button id="resetCanvas">Reset Canvas</button></li>
+                <li><button id="testCalibration">Test Calibration</button></li>
+                <li><button id="resetCalibrationdata">Reset Calibration Data</button></li>
+            </ul>
+            <div class="connectionStatus">
                 <div id="connectionStatusIndicator"></div>
                 <div>
                     <label id="connectionStatusText">disconnected</label>
@@ -40,8 +44,8 @@
                     <label id="connectionStatusNBack"></label>
                     <label id="connectionStatusTracker"></label>
                 </div>
-            </li>
-        </ul>
+            </div>
+        </div>
         <div class="light-map">
             <canvas id="trackerMap" width="930px" height="930px"></canvas>
             <code id="trackerDebugData"></code>
