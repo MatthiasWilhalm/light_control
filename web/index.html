@@ -11,6 +11,11 @@
     <div class="grid">
         <div id="sidepanel">
             <ul>
+                <li><label>Logging</label></li>
+                <li><input id="participantIdInput" placeholder="participant ID"></li>
+                <li><button id="updateId">Update Part.ID</button></li>
+                <li><button id="forceSaveLogs">Force-Save all Logs</button></li>
+                <li><button id="disableLogging">Disable Logging</button></li>
                 <li><label>Lights</label></li>
                 <li><button id="useTrackingForLights">Use Tracking</button></li>
                 <li><button id="reset">All OFF</button></li>
@@ -30,15 +35,15 @@
                 <li><button id="toggleTracking">Disable Tracking</button></li>
                 <li><button id="startCalibration">Start Calibration</button></li>
                 <li><code id="calibrationDataDisplay"></code></li>
+                <li><button id="testCalibration">Test Calibration</button></li>
+                <li><button id="resetCalibrationdata">Reset Calibration Data</button></li>
                 <li><label>Debug</label></li>
+                <li><button id="emulateTracking">Emulate Tracking</button></li>
                 <li><button id="echo">Send Echo</button></li>
                 <li><button id="addLog">Dummy Log Msg</button></li>
-                <li><button id="testCanvas">Test Canvas</button></li>
+                <!-- <li><button id="testCanvas">Test Canvas</button></li> -->
                 <li><button id="resetCanvas">Reset Canvas</button></li>
-                <li><button id="testCalibration">Test Calibration</button></li>
-                <li><button id="testNodes">Test Nodes</button></li>
-                <li><button id="emulateTracking">Emulate Tracking</button></li>
-                <li><button id="resetCalibrationdata">Reset Calibration Data</button></li>
+                <!-- <li><button id="testNodes">Test Nodes</button></li> -->
             </ul>
             <div class="connectionStatus">
                 <div id="connectionStatusIndicator"></div>

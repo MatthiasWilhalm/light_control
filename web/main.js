@@ -26,6 +26,10 @@ socket.addEventListener('open', (event) => {
         path: '/identify',
         body: 'web-client'
     }));
+    socket.send(JSON.stringify({
+        path: '/participantIdRequest',
+        body: ''
+    }));
 });
 
 // Connection closed
@@ -50,6 +54,9 @@ socket.addEventListener('message', (event) => {
         case '/trackerdata':
             handleTrackerData(message.body);
             break;
+        case '/participantId':
+            document.getElementById("participantIdInput").value = message.body;
+            break;
     }    
 });
 
@@ -61,6 +68,34 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
         sendLightUpdate(i, nextState);
     });
 });
+
+//logging
+    
+document.getElementById("updateId").addEventListener("click", () => {
+    const partId = document.getElementById("participantIdInput").value;
+    socket.send(JSON.stringify({
+        path: '/participantId',
+        body: partId
+    }));
+});
+// the idea behind this to force all loggers to store the logs to disk
+// in case they use a buffer
+document.getElementById("forceSaveLogs").addEventListener("click", () => {
+    socket.send(JSON.stringify({
+        path: '/saveLogs',
+        body: ''
+    }));
+});
+document.getElementById("disableLogging").addEventListener("click", () => {
+    const button = document.getElementById("disableLogging");
+    button.classList.toggle('button-selected');
+    socket.send(JSON.stringify({
+        path: '/disableLogging',
+        body: button.classList.contains('button-selected')
+    }));
+});
+
+// lights
 
 document.getElementById('reset').addEventListener('click', () => {
     updateDisplayByPath([]);
@@ -117,23 +152,7 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
 
 });
 
-document.getElementById('echo').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/echo',
-        body: 'echoing from web-client'
-    }));
-});
-
-var logCounter = 0;
-
-document.getElementById('addLog').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/log',
-        body: 'log entry ' + logCounter
-    }));
-    // printLog('log entry ' + logCounter);
-    logCounter++;
-});
+// nback
 
 document.getElementById('startTask').addEventListener('click', () => {
     socket.send(JSON.stringify({
@@ -172,6 +191,8 @@ document.getElementById('updateSteps').addEventListener('click', () => {
     }));
 });
 
+// tracking
+
 document.getElementById('toggleTracking').addEventListener('click', () => {
     allowTracking = !allowTracking;
     if(allowTracking) {
@@ -195,22 +216,35 @@ document.getElementById('startCalibration').addEventListener('click', async () =
     syncCalibrationDataDisplay();
 });
 
-document.getElementById('toggleLog').addEventListener('click', () => {
-    const log = document.getElementById('log');
-    log.style.display = log.style.display === 'none' ? 'block' : 'none';
+// debug
+
+document.getElementById('echo').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/echo',
+        body: 'echoing from web-client'
+    }));
 });
 
-document.getElementById('testCanvas').addEventListener('click', () => {
-    updateCanvas([
-        {x: Math.random()*930, y: Math.random()*930}
-    ]);
+var logCounter = 0;
+
+document.getElementById('addLog').addEventListener('click', () => {
+    socket.send(JSON.stringify({
+        path: '/log',
+        body: 'log entry ' + logCounter
+    }));
+    // printLog('log entry ' + logCounter);
+    logCounter++;
 });
 
-document.getElementById('resetCanvas').addEventListener('click', () => {
-    updateCanvas([]);
+document.getElementById('resetCalibrationdata').addEventListener('click', () => {
+    // gives warning to user
+    if(!confirm('Are you sure you want to reset the calibration data?')) return;
+    saveCalibrationData(null);
+    syncCalibrationDataDisplay();
 });
 
 document.getElementById('testCalibration').addEventListener('click', () => {
+    if(getCalibrationData()) return;
     saveCalibrationData({max: 4, min: -4});
     const vals = [
         convertTrackerDataToCanvasCoordinates(0, 8, 930, 30, 0.5),
@@ -223,13 +257,24 @@ document.getElementById('testCalibration').addEventListener('click', () => {
     updateCanvas(vals);
 });
 
-document.getElementById('testNodes').addEventListener('click', () => {
-    const nodesToDraw = [];
-    for (let i = 0; i < 5; i++) {
-        nodesToDraw.push(getNodeOnCanvas(i, 930, 30));
-    }
-    console.log(nodesToDraw);
-    updateCanvas(nodesToDraw);
+// document.getElementById('testNodes').addEventListener('click', () => {
+//     const nodesToDraw = [];
+//     for (let i = 0; i < 5; i++) {
+//         nodesToDraw.push(getNodeOnCanvas(i, 930, 30));
+//     }
+//     console.log(nodesToDraw);
+//     updateCanvas(nodesToDraw);
+// });
+
+
+// document.getElementById('testCanvas').addEventListener('click', () => {
+//     updateCanvas([
+//         {x: Math.random()*930, y: Math.random()*930}
+//     ]);
+// });
+
+document.getElementById('resetCanvas').addEventListener('click', () => {
+    updateCanvas([]);
 });
 
 var isTrackingEmulationActive = false;
@@ -250,10 +295,18 @@ document.getElementById('emulateTracking').addEventListener('click', () => {
     trackerMap.style.pointerEvents = 'auto';
 });
 
-document.getElementById('resetCalibrationdata').addEventListener('click', () => {
-    saveCalibrationData(null);
-    syncCalibrationDataDisplay();
+// other
+
+document.getElementById('toggleLog').addEventListener('click', () => {
+    const log = document.getElementById('log');
+    log.style.display = log.style.display === 'none' ? 'block' : 'none';
 });
+
+
+
+
+
+// functions
 
 const emulateTrackerData = (e) => {
     const canvas = document.getElementById('trackerMap');
@@ -262,7 +315,6 @@ const emulateTrackerData = (e) => {
     const y = e.clientY - rect.top;
     handleTrackerData(`emulated,${x},${y},0,0,0,0,0`, true);
 }
-
 
 
 const printLog = (message) => {

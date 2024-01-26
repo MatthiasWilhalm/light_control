@@ -4,12 +4,13 @@ import threading
 import json
 
 class WebSocketServer(threading.Thread):
-    def __init__(self, host, port, serial_connection, logger):
+    def __init__(self, host, port, serial_connection, logger, storage):
         super().__init__()
         self.host = host
         self.port = port
         self.serial_connection = serial_connection
         self.logger = logger
+        self.storage = storage
         self.loop = None
         self.active_connections = {}
         
@@ -48,6 +49,19 @@ class WebSocketServer(threading.Thread):
                 elif path == '/nback':
                     await self.log("Setting nback to " + str(body), True)
                     await self.broadcast(message)
+                elif path == '/participantId':
+                    await self.log("Setting participant ID to " + str(body), True)
+                    self.storage.set_participant_id(body)
+                    await self.broadcast_except_web_client(message)
+                elif path == '/participantIdRequest':
+                    await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
+                    await self.log("Sending participant ID to " + str(connection_id), True)
+                elif path == '/saveLogs':
+                    await self.log("Saving logs", True)
+                    await self.broadcast_except_web_client(message)
+                elif path == '/disableLogging':
+                    await self.log("Saving logs", True)
+                    await self.broadcast_except_web_client(message)
                 elif path == '/log' or path == '/trackerdata':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
                 else:
@@ -59,6 +73,10 @@ class WebSocketServer(threading.Thread):
     async def broadcast(self, message):
         if self.active_connections:
             await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values()))
+
+    async def broadcast_except_web_client(self, message):
+        if self.active_connections:
+            await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'web-client'))
             
     async def send(self, connection_id, message):
         if connection_id in self.active_connections:
