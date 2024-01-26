@@ -12,7 +12,8 @@ TCP_PORT = 12345
 SERIAL_PORT = 'COM3'
 WEBSOCKET_ADDRESS = '0.0.0.0'
 WEBSOCKET_PORT = 8765
-LOG_FILEPATH = '../logs/log.txt'
+LOG_FILEPATH = '../logs/'
+NBACK_LOG_FILEPATH = '../logs/nback/'
 
 
 global serial_connection
@@ -52,7 +53,8 @@ def send_serial_msg(msg):
 
 if __name__ == '__main__':
     
-    logger = Logger(LOG_FILEPATH)
+    operation_logger = Logger(LOG_FILEPATH, 'operation_log.txt')
+    nback_logger = Logger(NBACK_LOG_FILEPATH, 'nback_log.csv', True)
     storage = Storage()
 
     try:
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     # tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT, logger)
     # tcp_server_thread.start()
     
-    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection, logger, storage)
+    websocket_server_thread = WebSocketServer(WEBSOCKET_ADDRESS, WEBSOCKET_PORT, serial_connection, operation_logger, nback_logger, storage)
     websocket_server_thread.start()
 
     try:

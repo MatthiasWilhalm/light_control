@@ -4,12 +4,13 @@ import threading
 import json
 
 class WebSocketServer(threading.Thread):
-    def __init__(self, host, port, serial_connection, logger, storage):
+    def __init__(self, host, port, serial_connection, operation_logger, nback_logger, storage):
         super().__init__()
         self.host = host
         self.port = port
         self.serial_connection = serial_connection
-        self.logger = logger
+        self.operation_logger = operation_logger
+        self.nback_logger = nback_logger
         self.storage = storage
         self.loop = None
         self.active_connections = {}
@@ -52,10 +53,11 @@ class WebSocketServer(threading.Thread):
                 elif path == '/participantId':
                     await self.log("Setting participant ID to " + str(body), True)
                     self.storage.set_participant_id(body)
+                    self.nback_logger.set_filename(body + '.csv')
                     await self.broadcast_except_web_client(message)
                 elif path == '/participantIdRequest':
                     await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
-                    await self.log("Sending participant ID to " + str(connection_id), True)
+                    await self.log("Sending participant ID ("+self.storage.get_participant_id()+") to " + str(connection_id), True)
                 elif path == '/saveLogs':
                     await self.log("Saving logs", True)
                     await self.broadcast_except_web_client(message)
@@ -64,6 +66,9 @@ class WebSocketServer(threading.Thread):
                     await self.broadcast_except_web_client(message)
                 elif path == '/log' or path == '/trackerdata':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
+                elif path == '/nbackLog':
+                    print(body)
+                    self.nback_logger.log(body, True)
                 else:
                     print("Unknown path: " + path)
         finally:
@@ -85,7 +90,7 @@ class WebSocketServer(threading.Thread):
             print("Connection " + str(connection_id) + " not found")
             
     async def log(self, message, use_timestamp = False):
-        self.logger.log(message, use_timestamp)
+        self.operation_logger.log(message, use_timestamp)
         await self.send('web-client', json.dumps({'path': '/log', 'body': message}))
     
     async def send_active_connections(self):
