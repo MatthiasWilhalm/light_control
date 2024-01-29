@@ -376,9 +376,8 @@ const updatePathWithTracking = (nodeInRange) => {
         const nextPath = getNextPath(currentPath, currentNode, reversingPath);
         if(!activePaths.includes(nextPath))
             activePaths.push(nextPath);
-        console.log('activePaths', activePaths);
         updateDisplayByPath(currentPath, activePaths);
-        sendPath(currentPath);
+        sendPath([activePaths.at(-1)]);
     }
 };
 

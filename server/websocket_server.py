@@ -4,13 +4,14 @@ import threading
 import json
 
 class WebSocketServer(threading.Thread):
-    def __init__(self, host, port, serial_connection, operation_logger, nback_logger, storage):
+    def __init__(self, host, port, serial_connection, operation_logger, nback_logger, light_logger, storage):
         super().__init__()
         self.host = host
         self.port = port
         self.serial_connection = serial_connection
         self.operation_logger = operation_logger
         self.nback_logger = nback_logger
+        self.light_logger = light_logger
         self.storage = storage
         self.loop = None
         self.active_connections = {}
@@ -32,12 +33,15 @@ class WebSocketServer(threading.Thread):
                     light_state = 1 if body['state'] == True else 0
                     await self.log("Setting light " + str(light_index) + " to " + str(light_state), True)
                     self._send_serial_msg(str(light_index) + "," + str(light_state))
+                    self.light_logger.log("set light "+str(light_index)+" to "+str(light_state), True)
                 elif path == '/reset':
                     await self.log("Resetting lights", True)
                     self._send_serial_msg("reset")
+                    self.light_logger.log("reset", True)
                 elif path == '/setall':
                     await self.log("Setting all lights to " + str(body), True)
                     self._send_serial_msg("set" + str(body))
+                    self.light_logger.log(str(body), True)
                 elif path == '/identify':
                     del self.active_connections[connection_id]
                     connection_id = body
@@ -54,6 +58,7 @@ class WebSocketServer(threading.Thread):
                     await self.log("Setting participant ID to " + str(body), True)
                     self.storage.set_participant_id(body)
                     self.nback_logger.set_filename(body + '.csv')
+                    self.light_logger.set_filename(body + '.csv')
                     await self.broadcast_except_web_client(message)
                 elif path == '/participantIdRequest':
                     await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
