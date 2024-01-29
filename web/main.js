@@ -14,9 +14,21 @@ const isOutputReversed = () => document.getElementById('reverseOutput').classLis
 
 var allowTracking = true;
 var useTrackingForLights = false;
-var currentPath = null; // is used if useTrackingForLights is true
-var currentNodes = null; // is used if useTrackingForLights is true
-var activePaths = null; // is used if useTrackingForLights is true
+
+// is used if useTrackingForLights is true
+var currentPath = null; 
+var currentNodes = null;
+var activePaths = null;
+var reversingPath = false;
+
+const setReversingPath = (value) => {
+    reversingPath = value;
+    const reverseLightspath = document.getElementById('reverseLightspath');
+    if(reversingPath)
+        reverseLightspath.classList.add('button-selected');
+    else
+        reverseLightspath.classList.remove('button-selected');
+}
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -133,12 +145,16 @@ document.getElementById('reverseOutput').addEventListener('click', () => {
 
 document.getElementById('useTrackingForLights').addEventListener('click', () => {
     const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
+    const reverseLightspath = document.getElementById('reverseLightspath');
+
     useTrackingForLightsElem.classList.toggle('button-selected');
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
 
     document.getElementById('reset').disabled = useTrackingForLights;
     document.getElementById('all_on').disabled = useTrackingForLights;
     document.getElementById('random').disabled = useTrackingForLights;
+    reverseLightspath.style.display = useTrackingForLights ? 'block' : 'none';
+    setReversingPath(false);
     if(useTrackingForLights) {
         currentNodes = calcRandomNodes();
         currentPath = calcRandomPath(pathMode === 8, currentNodes);
@@ -149,7 +165,10 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     // reset lights
     updateDisplayByPath([]);
     sendPath([]);
+});
 
+document.getElementById('reverseLightspath').addEventListener('click', () => {
+    setReversingPath(!reversingPath);    
 });
 
 // nback
@@ -357,15 +376,13 @@ const handleTrackerData = (data, skipConversion) => {
     updateCanvas([coords]);
 }
 
-var reversingPath = false;
-
 const updatePathWithTracking = (nodeInRange) => {
     if(!currentNodes || !currentPath) return;
     const currentNode = currentNodes[0];
     if(nodeInRange === currentNode) {
         currentNodes.shift();
         if(currentNodes.length === 0) {
-            reversingPath = !reversingPath;
+            setReversingPath(!reversingPath);
             currentNodes = calcRandomNodes();
             currentPath = calcRandomPath(pathMode === 8, currentNodes);
             currentNodes = reversingPath ? currentNodes.reverse() : currentNodes;

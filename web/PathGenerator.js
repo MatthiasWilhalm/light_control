@@ -41,7 +41,8 @@ export const calcRandomNodes = () => {
         i++;
         path.push(currentNode);
     }
-    return path;
+    // quick and dirty fix to avoid paths with only 2 nodes
+    return path.length > 3 ? path : calcRandomNodes();
 };
 
 
@@ -53,17 +54,12 @@ export const getNextPath = (paths, currentNode, reverse) => {
     let ret = null;
 
     for (const index in NODES[currentNode].neighbours) {
-        console.log("index", index);
         const orderedPaths = reverse ? NODES[currentNode].paths.slice().reverse() : NODES[currentNode].paths;
-        console.log("orderedPaths[index]", orderedPaths[index]);
-        console.log("paths", paths);
-        console.log("paths.includes(orderedPaths[index])", paths.includes(orderedPaths[index]));
         if (paths.includes(orderedPaths[index])) {
             ret = orderedPaths[index];
             break;
         }
     }
-    console.log("---------------------------------------");
     return ret;
 }
 
