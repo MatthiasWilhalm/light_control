@@ -1,3 +1,4 @@
+// nodes with their neighbours and the paths that connect them
 const NODES = {
     0: {
         neighbours: [1, 1, 1, 2, 2, 2, 3, 3, 3],
@@ -21,10 +22,20 @@ const NODES = {
     }
 };
 
+/**
+ * Returns the neighbours of a node without duplicates
+ * @param {number} nodeIndex 
+ * @returns 
+ */
 const getReducedNeighbours = (nodeIndex) => {
     return [...new Set(NODES[nodeIndex].neighbours)];
 };
 
+/**
+ * returns an array of node indexes that can be used to generate a path
+ * first node is always 0, last node is always 4
+ * @returns {number[]}
+ */
 export const calcRandomNodes = () => {
     const path = [];
     let currentNode = 0;
@@ -45,11 +56,24 @@ export const calcRandomNodes = () => {
     return path.length > 3 ? path : calcRandomNodes();
 };
 
-
+/**
+ * generates a random path based on the given node indexes
+ * if path param is not given, it will generate random nodes
+ * @param {boolean} disablePathVariation true if there are 8 paths, false if there are 24
+ * @param {number[]} path 
+ * @returns {number[]}
+ */
 export const calcRandomPath = (disablePathVariation, path = calcRandomNodes()) => {
     return convertNodeIndexesToPath(path, disablePathVariation);
 }
 
+/**
+ * returns the next path that the user should walk
+ * @param {number[]} paths all paths that are NOT currently active
+ * @param {number} currentNode where the user is currently located
+ * @param {boolean} reverse true if the user is walking from node 4 to node 0
+ * @returns {number} the next path that the user should walk
+ */
 export const getNextPath = (paths, currentNode, reverse) => {
     let ret = null;
 
@@ -63,14 +87,21 @@ export const getNextPath = (paths, currentNode, reverse) => {
     return ret;
 }
 
-
+/**
+ * returns the paths that connect the given nodes
+ * if disablePathVariation is false, it will choose a random path out of 3 possible paths
+ * that connects the same node
+ * @param {number[]} nodeIndexes 
+ * @param {boolean} disablePathVariation 
+ * @returns {number[]}
+ */
 const convertNodeIndexesToPath = (nodeIndexes, disablePathVariation) => {
     const paths = [];
     // this is needed since we currently only connect to nodes that are next to each other
     // but we want to have some variation in the paths
     const getRandomOffset = () => Math.floor(Math.random() * 3);
     for (let i = 0; i < nodeIndexes.length - 1; i++) {
-        const path = nodeIndexesToPaths(
+        const path = nodeIndexesToPath(
             nodeIndexes[i], 
             nodeIndexes[i + 1], 
             disablePathVariation ? 1 : getRandomOffset()
@@ -80,7 +111,14 @@ const convertNodeIndexesToPath = (nodeIndexes, disablePathVariation) => {
     return paths;
 };
 
-const nodeIndexesToPaths = (startNode, endNode, offset) => {
+/**
+ * returns the path that connects the given nodes
+ * @param {number} startNode 
+ * @param {number} endNode 
+ * @param {number} offset 
+ * @returns {number}
+ */
+const nodeIndexesToPath = (startNode, endNode, offset) => {
     const index = NODES[startNode].neighbours.indexOf(endNode);
     return NODES[startNode].paths[index + offset];
 }

@@ -1,5 +1,7 @@
+// range where the it counts as "user is on the node"
 export const detectableNodeRange = 100;
 
+// normalised nodes location on canvas
 const nodes = [
     { x: 1, y: 0 },
     { x: 0, y: 1 },
@@ -8,6 +10,15 @@ const nodes = [
     { x: 1, y: 2 },
 ];
 
+/**
+ * returns the node possition on the canvas
+ * as pixel coordinates
+ * for now this function assumes that the canvas is a square
+ * @param {number} nodeIndex 
+ * @param {number} canvasSize 
+ * @param {number} canvasBorderOffset basically the border margin
+ * @returns {{x: number, y: number}}
+ */
 export const getNodeOnCanvas = (nodeIndex, canvasSize, canvasBorderOffset) => {
     const node = nodes[nodeIndex];
     const absoluteSize = canvasSize - canvasBorderOffset * 2;
@@ -16,16 +27,33 @@ export const getNodeOnCanvas = (nodeIndex, canvasSize, canvasBorderOffset) => {
     return { x, y };
 };
 
-
+/**
+ * saves the calibration data to local storage
+ * @param {{min: number, max: number}} data 
+ */
 export const saveCalibrationData = (data) => {
     localStorage.setItem('calibrationData', JSON.stringify(data));
 };
 
+/**
+ * returns the calibration data from local storage
+ * @returns {{min: number, max: number}}
+ */
 export const getCalibrationData = () => {
     const data = localStorage.getItem('calibrationData');
     return data ? JSON.parse(data) : null;
 }
 
+/**
+ * gets the raw data from the vive tracker
+ * and converts it to pixel coordinates on the canvas
+ * @param {number} x vive tracker x coordinate
+ * @param {number} y vive tracker y coordinate
+ * @param {number} canvasSize 
+ * @param {number} canvasBorderOffset 
+ * @param {number} verticalScale the proportion of the vertical axis to the horizontal axis
+ * @returns {{x: number, y: number}} pixel coordinates on the canvas
+ */
 export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBorderOffset, verticalScale = 1) => {
     const data = getCalibrationData();
     if (!data) return null;
@@ -47,6 +75,7 @@ export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBo
  * if the distance is less than the detectableNodeRange
  * @param {number} x 
  * @param {number} y 
+ * @returns {number} index of the node
  */
 export const getCurrentNodeInRange = (x, y) => {
     let ret;

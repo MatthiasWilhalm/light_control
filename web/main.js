@@ -8,12 +8,15 @@ const socket = new WebSocket(URL);
 var mainTrackerName = '';
 const currentTrackerValues = {};
 
+// change default pathMode here
 var pathMode = 24;
-
-const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
 var allowTracking = true;
 var useTrackingForLights = false;
+
+var isTrackingEmulationActive = false;
+
+const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
 // is used if useTrackingForLights is true
 var currentPath = null; 
@@ -72,6 +75,7 @@ socket.addEventListener('message', (event) => {
     }    
 });
 
+// adds event listeners to all paths in the lights-path-svg 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
         if(light.classList.contains('disabled')) return;
@@ -296,7 +300,6 @@ document.getElementById('resetCanvas').addEventListener('click', () => {
     updateCanvas([]);
 });
 
-var isTrackingEmulationActive = false;
 
 document.getElementById('emulateTracking').addEventListener('click', () => {
     const trackerMap = document.getElementById("trackerMap");
@@ -330,6 +333,10 @@ document.getElementById('toggleLog').addEventListener('click', () => {
 
 // functions
 
+/**
+ * receives the mouse coordinates to emulate the tracker data
+ * @param {MouseEvent} e
+ */
 const emulateTrackerData = (e) => {
     const canvas = document.getElementById('trackerMap');
     const rect = canvas.getBoundingClientRect();
@@ -338,7 +345,10 @@ const emulateTrackerData = (e) => {
     handleTrackerData(`emulated,${x},${y},0,0,0,0,0`, true);
 }
 
-
+/**
+ * adds a log entry to the log list
+ * @param {string} message 
+ */
 const printLog = (message) => {
     const log = document.getElementById('log');
     if(log.children.length > 500) {
@@ -349,6 +359,12 @@ const printLog = (message) => {
     log.appendChild(logEntry);
 }
 
+/**
+ * processes the tracker data and updates the display
+ * @param {{x: number, y: number}} data 
+ * @param {boolean} skipConversion set to true if the data is already converted
+ * @returns 
+ */
 const handleTrackerData = (data, skipConversion) => {
     if(!allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
@@ -376,11 +392,18 @@ const handleTrackerData = (data, skipConversion) => {
     updateCanvas([coords]);
 }
 
+/**
+ * if the given node is in range of the current node
+ * the next part of the path will be activated
+ * @param {number} nodeInRange 
+ * @returns 
+ */
 const updatePathWithTracking = (nodeInRange) => {
     if(!currentNodes || !currentPath) return;
     const currentNode = currentNodes[0];
     if(nodeInRange === currentNode) {
         currentNodes.shift();
+        // generates a new path if the current path is finished
         if(currentNodes.length === 0) {
             setReversingPath(!reversingPath);
             currentNodes = calcRandomNodes();
@@ -405,6 +428,12 @@ const updatePathWithTracking = (nodeInRange) => {
     }
 };
 
+/**
+ * returns all paths that are in currentPaths but not in activePaths
+ * @param {number[]} activePaths 
+ * @param {number[]} currentPaths 
+ * @returns {number[]} all paths that are in currentPaths but not in activePaths
+ */
 const getUpComingPath = (activePaths, currentPaths) => {
     const ret = [];
     for (let i = 0; i < currentPaths.length; i++) {
@@ -416,6 +445,11 @@ const getUpComingPath = (activePaths, currentPaths) => {
     return ret;
 };
 
+/**
+ * sets all svg nodes to active that are in the given array
+ * all other nodes will be set to inactive
+ * @param {number[]} activeNodes 
+ */
 const activateSVGNodes = (activeNodes) => {
     const svgNodes = document.getElementsByTagName('circle');
     for (let i = 0; i < svgNodes.length; i++) {
@@ -495,6 +529,7 @@ const sendReset = () => {
 }
 
 /**
+ * sends the given path to the server
  * @param {number[]} path [0, 1, 2, 3, 4] (light indexes)
 */
 const sendPath = (path) => {
@@ -509,6 +544,11 @@ const sendPath = (path) => {
     }));
 }
 
+/**
+ * updates the connection status display
+ * according to the given boolean
+ * @param {boolean} connected 
+ */
 const setConnectionStatusDisplay = (connected) => {
     const icon = document.getElementById('connectionStatusIndicator');
     const statusText = document.getElementById('connectionStatusText');
@@ -535,16 +575,28 @@ const setConnectionStatusDisplay = (connected) => {
     }
 };
 
+/**
+ * set the nback connection status display
+ * @param {boolean} connected 
+ */
 const setNBackStatusDisplay = (connected) => {
     const statusNBack = document.getElementById('connectionStatusNBack');
     statusNBack.innerText = 'N-Back:' + (connected ? 'connected' : 'disconnected');
 };
 
+/**
+ * set the tracker connection status display
+ * @param {boolean} connected 
+ */
 const setTrackerStatusDisplay = (connected) => {
     const statusTracker = document.getElementById('connectionStatusTracker');
     statusTracker.innerText = 'Tracker:' + (connected ? 'connected' : 'disconnected');
 };
 
+/**
+ * draws the given points on the canvas
+ * @param {{x: number, y:number}[]} data 
+ */
 const updateCanvas = (data) => {
     const canvas = document.getElementById('trackerMap');
     const ctx = canvas.getContext('2d');
@@ -558,6 +610,10 @@ const updateCanvas = (data) => {
     });
 }
 
+/**
+ * syncs the calibration data display with the saved calibration data in local storage
+ * @returns 
+ */
 const syncCalibrationDataDisplay = () => {
     const display = document.getElementById('calibrationDataDisplay');
     const data = getCalibrationData();
@@ -568,6 +624,11 @@ const syncCalibrationDataDisplay = () => {
     display.innerText = `min: ${data.min}, max: ${data.max}`;
 }
 
+/**
+ * starts a timer in fullscreen that counts down from 10 to 0
+ * @param {string} finnishText 
+ * @returns 
+ */
 const startTimer = (finnishText = "done") => {
     let interval;
     return new Promise((resolve) => {
@@ -597,5 +658,6 @@ const startTimer = (finnishText = "done") => {
     });
 }
 
+// init
 syncCalibrationDataDisplay();
 setConnectionStatusDisplay(false);
