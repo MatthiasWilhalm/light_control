@@ -350,6 +350,14 @@ const emulateTrackerData = (e) => {
  * @param {string} message 
  */
 const printLog = (message) => {
+    const date = new Date();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    const time = `${hours}:${minutes}:${seconds}`;
+    message = `[${time}] ${message}`;
+
     const log = document.getElementById('log');
     if(log.children.length > 500) {
         log.removeChild(log.children[0]);
