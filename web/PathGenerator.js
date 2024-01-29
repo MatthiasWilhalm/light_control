@@ -51,13 +51,19 @@ export const calcRandomPath = (disablePathVariation, path = calcRandomNodes()) =
 
 export const getNextPath = (paths, currentNode, reverse) => {
     let ret = null;
-    NODES[currentNode].neighbours.forEach((node, index) => {
+
+    for (const index in NODES[currentNode].neighbours) {
+        console.log("index", index);
         const orderedPaths = reverse ? NODES[currentNode].paths.slice().reverse() : NODES[currentNode].paths;
+        console.log("orderedPaths[index]", orderedPaths[index]);
+        console.log("paths", paths);
+        console.log("paths.includes(orderedPaths[index])", paths.includes(orderedPaths[index]));
         if (paths.includes(orderedPaths[index])) {
             ret = orderedPaths[index];
-            return;
+            break;
         }
-    });
+    }
+    console.log("---------------------------------------");
     return ret;
 }
 

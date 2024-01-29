@@ -373,12 +373,27 @@ const updatePathWithTracking = (nodeInRange) => {
         }
         if(!activePaths)
             activePaths = [];
-        const nextPath = getNextPath(currentPath, currentNode, reversingPath);
+        const nextPath = getNextPath(
+            getUpComingPath(activePaths, currentPath),
+            currentNode,
+            reversingPath
+        );
         if(!activePaths.includes(nextPath))
             activePaths.push(nextPath);
         updateDisplayByPath(currentPath, activePaths);
         sendPath([activePaths.at(-1)]);
     }
+};
+
+const getUpComingPath = (activePaths, currentPaths) => {
+    const ret = [];
+    for (let i = 0; i < currentPaths.length; i++) {
+        const path = currentPaths[i];
+        if(!activePaths.includes(path)) {
+            ret.push(path);
+        }
+    }
+    return ret;
 };
 
 const activateSVGNodes = (activeNodes) => {
