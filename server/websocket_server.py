@@ -16,6 +16,7 @@ class WebSocketServer(threading.Thread):
         self.loop = None
         self.active_connections = {}
         
+    # handles incoming messages from the websockets
     async def _msg_received(self, websocket, ws_path):
         
         connection_id = id(websocket)
@@ -28,52 +29,83 @@ class WebSocketServer(threading.Thread):
                 path = res['path']
                 body = res['body']
                 
+                # lights
                 if path == '/setlight':
                     light_index = body['index']
                     light_state = 1 if body['state'] == True else 0
                     await self.log("Setting light " + str(light_index) + " to " + str(light_state), True)
                     self._send_serial_msg(str(light_index) + "," + str(light_state))
                     self.light_logger.log("set light "+str(light_index)+" to "+str(light_state), True)
+
                 elif path == '/reset':
                     await self.log("Resetting lights", True)
                     self._send_serial_msg("reset")
                     self.light_logger.log("reset", True)
+
                 elif path == '/setall':
                     await self.log("Setting all lights to " + str(body), True)
                     self._send_serial_msg("set" + str(body))
                     self.light_logger.log(str(body), True)
+
+                # client sends a "/identify" message when it connects
+                # this is used to identify what the client is
                 elif path == '/identify':
                     del self.active_connections[connection_id]
                     connection_id = body
                     self.active_connections[connection_id] = websocket
                     await self.send_active_connections()
+
+                # echo for testing
                 elif path == '/echo':
                     print("Echo path: " + ws_path)
                     print("Echoing message: " + message)
                     await self.broadcast(message)
+
+                # for nback controll commands
+                # mostly from web-client to nback-client
                 elif path == '/nback':
                     await self.log("Setting nback to " + str(body), True)
                     await self.broadcast(message)
+
+                # sets the participant ID on this server and sends it to all clients
+                # except the web-client
                 elif path == '/participantId':
                     await self.log("Setting participant ID to " + str(body), True)
                     self.storage.set_participant_id(body)
                     self.nback_logger.set_filename(body + '.csv')
                     self.light_logger.set_filename(body + '.csv')
                     await self.broadcast_except_web_client(message)
+
+                # sends the participant ID to the the client that requested it
                 elif path == '/participantIdRequest':
                     await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
                     await self.log("Sending participant ID ("+self.storage.get_participant_id()+") to " + str(connection_id), True)
+
+                # forces all loggers to save their logs
+                # (in case the logger uses a buffer.. which right now only the tracker logger does)
                 elif path == '/saveLogs':
                     await self.log("Saving logs", True)
                     await self.broadcast_except_web_client(message)
+
+                # disables logging on all loggers
                 elif path == '/disableLogging':
-                    await self.log("Saving logs", True)
+                    if(body):
+                        await self.log("disable Logging", body)
+                    else:
+                        await self.log("enable Logging", body)
+                    self.nback_logger.set_pause_logging(body)
+                    self.light_logger.set_pause_logging(body)
                     await self.broadcast_except_web_client(message)
+
+                # sends all the messages with the path '/log' or '/trackerdata' to the web-client
                 elif path == '/log' or path == '/trackerdata':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
+
+                # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
                     print(body)
                     self.nback_logger.log(body, True)
+
                 else:
                     print("Unknown path: " + path)
         finally:
