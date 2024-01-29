@@ -117,6 +117,9 @@ class WebSocketServer(threading.Thread):
         
         # sends a message to the serial connection
     def _send_serial_msg(self, msg):
-        print("Sending serial message: " + msg)
-        res = str(msg).encode('utf-8')
-        self.serial_connection.write(res)
+        try:
+            print("Sending serial message: " + msg)
+            res = str(msg).encode('utf-8')
+            self.serial_connection.write(res)
+        except Exception as e:
+            print("Failed to send serial message")
