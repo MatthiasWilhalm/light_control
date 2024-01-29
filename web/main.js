@@ -287,6 +287,9 @@ document.getElementById('emulateTracking').addEventListener('click', () => {
         document.getElementById('emulateTracking').classList.remove('button-selected');
         trackerMap.removeEventListener("mousemove", emulateTrackerData);
         trackerMap.style.pointerEvents = 'none';
+        document.getElementById('trackerDebugData').innerText = '';
+        activateSVGNodes([]);
+        updateCanvas([]);
         return;
     }
     isTrackingEmulationActive = true;
