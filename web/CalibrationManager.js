@@ -37,7 +37,7 @@ export const saveCalibrationData = (data) => {
 
 /**
  * returns the calibration data from local storage
- * @returns {{min: number, max: number}}
+ * @returns {{minY: number, maxY: number, minX: number, maxX: number, rotation: number, flipX: boolean, flipY: boolean}}
  */
 export const getCalibrationData = () => {
     const data = localStorage.getItem('calibrationData');
@@ -54,20 +54,33 @@ export const getCalibrationData = () => {
  * @param {number} verticalScale the proportion of the vertical axis to the horizontal axis
  * @returns {{x: number, y: number}} pixel coordinates on the canvas
  */
-export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBorderOffset, verticalScale = 1) => {
+export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBorderOffset) => {
     const data = getCalibrationData();
     if (!data) return null;
-    const range = Math.abs(data.max - data.min);
+
+    const rangeX = Math.abs(data.maxX - data.minX);
+    const rangeY = Math.abs(data.maxY - data.minY);
     const canvasRange = canvasSize - canvasBorderOffset * 2;
     //convert x, y origin from center of screen to top left corner
-    const normX = x + range / 2;
-    const normY = y * verticalScale + range / 2;
-    // console.log(normX, normY, range, canvasRange);
+    const normX = x + rangeX / 2;
+    const normY = y + rangeY / 2;
     // scale x, y to canvas size
-    const xCanvas = normX * canvasRange / range + canvasBorderOffset;
-    const yCanvas = normY * canvasRange / range + canvasBorderOffset;
-    
-    return { x: xCanvas, y: yCanvas };
+    let xCanvas = normX * canvasRange / rangeX + canvasBorderOffset;
+    let yCanvas = normY * canvasRange / rangeY + canvasBorderOffset;
+
+    if (data.flipX) xCanvas = canvasSize - xCanvas;
+    if (data.flipY) yCanvas = canvasSize - yCanvas;
+
+    if(!data.rotation)
+        return { x: xCanvas, y: yCanvas };
+
+    const angle = data.rotation * Math.PI / 180;
+    const xCenter = canvasSize / 2;
+    const yCenter = canvasSize / 2;
+    const xRotated = Math.cos(angle) * (xCanvas - xCenter) - Math.sin(angle) * (yCanvas - yCenter) + xCenter;
+    const yRotated = Math.sin(angle) * (xCanvas - xCenter) + Math.cos(angle) * (yCanvas - yCenter) + yCenter;
+
+    return { x: xRotated, y: yRotated };
 };
 
 /**

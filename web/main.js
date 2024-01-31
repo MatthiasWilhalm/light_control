@@ -5,6 +5,10 @@ const URL = 'ws://localhost:8765';
 
 const socket = new WebSocket(URL);
 
+const CANVAS_SIZE = 930;
+const CANVAS_MARGIN = 30;
+
+
 var mainTrackerName = '';
 const currentTrackerValues = {};
 
@@ -232,10 +236,36 @@ document.getElementById('startCalibration').addEventListener('click', async () =
     const val1 = parseFloat(currentTrackerValues[mainTrackerName].x);
     await startTimer("calibrating");
     const val2 = parseFloat(currentTrackerValues[mainTrackerName].x);
+    await startTimer("calibrating");
+    const val3 = parseFloat(currentTrackerValues[mainTrackerName].z);
+    await startTimer("calibrating");
+    const val4 = parseFloat(currentTrackerValues[mainTrackerName].z);
 
-    const max = Math.max(val1, val2);
-    const min = Math.min(val1, val2);
-    saveCalibrationData({max, min});
+    const maxX = Math.max(val1, val2);
+    const minX = Math.min(val1, val2);
+    const maxY = Math.max(val3, val4);
+    const minY = Math.min(val3, val4);
+    saveCalibrationData({maxX, minY, maxY, minX, rotation: 0, flipX: false, flipY: false});
+    syncCalibrationDataDisplay();
+});
+
+document.getElementById("flipX").addEventListener("click", () => {
+    const data = getCalibrationData();
+    if(!data) return;
+    saveCalibrationData({...data, flipX: !data.flipX});
+    syncCalibrationDataDisplay();
+});
+document.getElementById("flipY").addEventListener("click", () => {
+    const data = getCalibrationData();
+    if(!data) return;
+    saveCalibrationData({...data, flipY: !data.flipY});
+    syncCalibrationDataDisplay();
+});
+document.getElementById("rotateCalibraion").addEventListener("click", () => {
+    const data = getCalibrationData();
+    if(!data) return;
+    let rotation = data.rotation || 0;
+    saveCalibrationData({...data, rotation: rotation + 90 % 360});
     syncCalibrationDataDisplay();
 });
 
@@ -381,12 +411,11 @@ const handleTrackerData = (data, skipConversion) => {
     // TODO: change if we have multiple trackers
     if(mainTrackerName === '')
         mainTrackerName = name;
-    const canvasSize = 930;
     let coords;
     if(skipConversion) {
         coords = {x, y};
     } else {
-        coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), canvasSize, 30, 2);
+        coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), CANVAS_SIZE, CANVAS_MARGIN);
     }
     
     if(!coords) {
@@ -629,7 +658,8 @@ const syncCalibrationDataDisplay = () => {
         display.innerText = 'no calibration data';
         return;
     }
-    display.innerText = `min: ${data.min}, max: ${data.max}`;
+    display.innerText = `minY: ${data.minY}, maxY: ${data.maxY}\nminX: ${data.minX}, maxX: ${data.maxX}`+
+        `\nrotation: ${data.rotation}°\nflipX: ${data.flipX}, flipY: ${data.flipY}`;
 }
 
 /**
