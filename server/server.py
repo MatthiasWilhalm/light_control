@@ -7,9 +7,11 @@ from websocket_server import WebSocketServer
 from logger import Logger
 from storage import Storage
 
+USE_EMULATOR = False
+
 TCP_ADDRESS = 'localhost'
 TCP_PORT = 12345
-SERIAL_PORT = 'COM3'
+SERIAL_PORT = 'COM9'
 WEBSOCKET_ADDRESS = '0.0.0.0'
 WEBSOCKET_PORT = 8765
 LOG_FILEPATH = '../logs/'
@@ -61,11 +63,16 @@ if __name__ == '__main__':
 
     try:
         # use this for the emulator
-        serial_connection = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600)
-        # serial_connection = serial.Serial(port=SERIAL_PORT, baudrate=9600)
+        if(USE_EMULATOR):
+            serial_connection = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600)
+        else:
+            serial_connection = serial.Serial(port=SERIAL_PORT, baudrate=9600)
         print("connected to serial connection: " + serial_connection.name)
     except:
-        print("failed to connect to serial connection " + SERIAL_PORT)
+        if(USE_EMULATOR):
+            print("failed to connect to serial connection at localhost:4000")
+        else:
+            print("failed to connect to serial connection " + SERIAL_PORT)
 
     # tcp_server_thread = TCPServer(stop_event, TCP_ADDRESS, TCP_PORT, logger)
     # tcp_server_thread.start()
