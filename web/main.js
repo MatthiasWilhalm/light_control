@@ -75,6 +75,7 @@ socket.addEventListener('message', (event) => {
             printLog(message.body);
             break;
         case '/trackerdata':
+            if(isTrackingEmulationActive) break;
             handleTrackerData(message.body);
             break;
         case '/participantId':
@@ -386,12 +387,14 @@ const handlePartialPathGeneration = () => {
     if(currentPath.length >= 2)
         currentPath.shift();
     currentPath.push(path[0]);
-    updateDisplayByPath(currentPath);
-    sendPath(currentPath);
     previousNode = currentNode;
     currentNode = nextNode;
-    if(currentPath.length < 2)
-        return handlePartialPathGeneration();
+    if(currentPath.length < 2) {
+        handlePartialPathGeneration();
+        return;
+    }
+    updateDisplayByPath(currentPath);
+    sendPath(currentPath);
 }
 
 /**
