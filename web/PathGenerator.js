@@ -88,6 +88,20 @@ export const getNextPath = (paths, currentNode, reverse) => {
 }
 
 /**
+ * returns a random neighbour of the given current node
+ * but excludes the previous node
+ * @param {number} currentNode 
+ * @param {number} previousNode 
+ * @returns 
+ */
+export const getRandomNodeNeighbour = (currentNode, previousNode) => {
+    const connectedNodes = getReducedNeighbours(currentNode);
+    const filteredNodes = connectedNodes.filter(node => node !== previousNode);
+    const nextNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
+    return nextNode;
+};
+
+/**
  * returns the paths that connect the given nodes
  * if disablePathVariation is false, it will choose a random path out of 3 possible paths
  * that connects the same node

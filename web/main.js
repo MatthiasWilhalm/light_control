@@ -1,5 +1,5 @@
 import { convertTrackerDataToCanvasCoordinates, getCalibrationData, getCurrentNodeInRange, getNodeOnCanvas, saveCalibrationData } from "./CalibrationManager.js";
-import { calcRandomNodes, calcRandomPath, getNextPath } from "./PathGenerator.js";
+import { calcRandomNodes, calcRandomPath, getNextPath, getRandomNodeNeighbour } from "./PathGenerator.js";
 
 const URL = 'ws://localhost:8765';
 
@@ -27,6 +27,10 @@ var currentPath = null;
 var currentNodes = null;
 var activePaths = null;
 var reversingPath = false;
+
+// is used for partial path generation
+var currentNode = -1;
+var previousNode = -1;
 
 const setReversingPath = (value) => {
     reversingPath = value;
@@ -164,11 +168,16 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     reverseLightspath.style.display = useTrackingForLights ? 'block' : 'none';
     setReversingPath(false);
     if(useTrackingForLights) {
-        currentNodes = calcRandomNodes();
-        currentPath = calcRandomPath(pathMode === 8, currentNodes);
+        currentNode = 0;
+        // handlePartialPathGeneration();
+        // currentNodes = calcRandomNodes();
+        // currentPath = calcRandomPath(pathMode === 8, currentNodes);
     } else {
         currentNodes = null;
         currentPath = null;
+        activePaths = null;
+        currentNode = -1;
+        previousNode = -1;
     }
     // reset lights
     updateDisplayByPath([]);
@@ -350,6 +359,10 @@ document.getElementById('emulateTracking').addEventListener('click', () => {
     trackerMap.style.pointerEvents = 'auto';
 });
 
+document.getElementById('testPartialPath').addEventListener('click', () => {
+    handlePartialPathGeneration();
+});
+
 // other
 
 document.getElementById('toggleLog').addEventListener('click', () => {
@@ -362,6 +375,27 @@ document.getElementById('toggleLog').addEventListener('click', () => {
 
 
 // functions
+
+/**
+ * generates the next 2 segments of the path relativ to the current node
+ * @returns 
+ */
+const handlePartialPathGeneration = () => {
+    currentNode = currentNode === -1 ? 0 : currentNode;
+    let nextNode = getRandomNodeNeighbour(currentNode, previousNode);
+    const path = calcRandomPath(pathMode === 8, [currentNode, nextNode]);
+    if(!currentPath) currentPath = [];
+    if(currentPath.length >= 2)
+        currentPath.shift();
+    currentPath.push(path[0]);
+    updateDisplayByPath(currentPath);
+    sendPath(currentPath);
+    previousNode = currentNode;
+    currentNode = nextNode;
+    if(currentPath.length < 2)
+        return handlePartialPathGeneration();
+    console.log(previousNode, currentNode, currentPath);
+}
 
 /**
  * receives the mouse coordinates to emulate the tracker data
@@ -431,37 +465,13 @@ const handleTrackerData = (data, skipConversion) => {
 
 /**
  * if the given node is in range of the current node
- * the next part of the path will be activated
+ * the next part of the path will be generated
  * @param {number} nodeInRange 
  * @returns 
  */
 const updatePathWithTracking = (nodeInRange) => {
-    if(!currentNodes || !currentPath) return;
-    const currentNode = currentNodes[0];
-    if(nodeInRange === currentNode) {
-        currentNodes.shift();
-        // generates a new path if the current path is finished
-        if(currentNodes.length === 0) {
-            setReversingPath(!reversingPath);
-            currentNodes = calcRandomNodes();
-            currentPath = calcRandomPath(pathMode === 8, currentNodes);
-            currentNodes = reversingPath ? currentNodes.reverse() : currentNodes;
-            if(!currentNodes.includes(currentNode))
-                currentNodes.unshift(currentNode);
-            updateDisplayByPath([]);
-            activePaths = null;
-        }
-        if(!activePaths)
-            activePaths = [];
-        const nextPath = getNextPath(
-            getUpComingPath(activePaths, currentPath),
-            currentNode,
-            reversingPath
-        );
-        if(!activePaths.includes(nextPath))
-            activePaths.push(nextPath);
-        updateDisplayByPath(currentPath, activePaths);
-        sendPath([activePaths.at(-1)]);
+    if([previousNode, currentNode].includes(nodeInRange)) {
+        handlePartialPathGeneration();
     }
 };
 
