@@ -394,7 +394,6 @@ const handlePartialPathGeneration = () => {
     currentNode = nextNode;
     if(currentPath.length < 2)
         return handlePartialPathGeneration();
-    console.log(previousNode, currentNode, currentPath);
 }
 
 /**
