@@ -168,10 +168,8 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     reverseLightspath.style.display = useTrackingForLights ? 'block' : 'none';
     setReversingPath(false);
     if(useTrackingForLights) {
+        // asumes that the user starts at node 0
         currentNode = 0;
-        // handlePartialPathGeneration();
-        // currentNodes = calcRandomNodes();
-        // currentPath = calcRandomPath(pathMode === 8, currentNodes);
     } else {
         currentNodes = null;
         currentPath = null;
