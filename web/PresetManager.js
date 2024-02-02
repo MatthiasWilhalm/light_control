@@ -7,7 +7,7 @@ export const INIT_CONFIG = {
 export const NBACK_TYPES = {
     HEAD: "head",
     TORSO: "torso",
-    HANDS: "hands"
+    HAND: "hand"
 };
 
 export const PRESET_TYPES = {

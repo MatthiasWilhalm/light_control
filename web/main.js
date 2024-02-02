@@ -317,6 +317,17 @@ document.getElementById('testPartialPath').addEventListener('click', () => {
     handlePartialPathGeneration();
 });
 
+document.getElementById('testNodes').addEventListener('click', () => {
+    const points = getCalibrationData();
+    if(!points) return;
+    updateCanvas([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN)
+    ]);
+});
+
 // other
 
 document.getElementById('toggleLog').addEventListener('click', () => {
