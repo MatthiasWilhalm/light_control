@@ -13,32 +13,45 @@
             <ul>
                 <li><label>Logging</label></li>
                 <li><input id="participantIdInput" placeholder="participant ID"></li>
+                <li><select id="presetSelect"></select></li>
                 <li><button id="updateId">Update Part.ID</button></li>
                 <li><button id="forceSaveLogs">Force-Save all Logs</button></li>
                 <li><button id="disableLogging">Disable Logging</button></li>
                 <li><label>Lights</label></li>
                 <li><button id="useTrackingForLights">Use Tracking</button></li>
-                <li><button id="reverseLightspath" style="display: none;">Reverse Path</button></li>
-                <li><button id="reset">All OFF</button></li>
-                <li><button id="all_on">All ON</button></li>
+                <li>
+                    <div class="button-group">
+                        <button id="reset">All OFF</button>
+                        <button id="all_on">All ON</button>
+                    </div>
+                </li>
                 <li><button id="random">Random Path</button></li>
                 <li><button id="pathType">Active Paths: 24</button></li>
                 <li><button id="reverseOutput">Reverse Output</button></li>
                 <li><label>N-Back</label></li>
+                <li><select id="nbackTypeSelect"></select></li>
                 <li><button id="startTask">Start Task</button></li>
                 <li><button id="startBaseline">Start Baseline Task</button></li>
                 <li><button id="stopTask">Stop Task</button></li>
-                <li><button id="triggerLeft">Left</button></li>
-                <li><button id="triggerRight">Right</button></li>
+                <li>
+                    <div class="button-group">
+                        <button id="triggerLeft">Left</button>
+                        <button id="triggerRight">Right</button>
+                    </div>
+                </li>
                 <li><input id="nbackSteps" value="1" type="number" min="0"></li>
                 <li><button id="updateSteps">Update Steps</button></li>
                 <li><label>Tracker</label></li>
                 <li><button id="toggleTracking">Disable Tracking</button></li>
                 <li><button id="startCalibration">Start Calibration</button></li>
                 <li><code id="calibrationDataDisplay"></code></li>
-                <li><button id="flipX">Flip X</button></li>
-                <li><button id="flipY">Flip Y</button></li>
-                <li><button id="rotateCalibraion">Rotate 90°</button></li>
+                <li>
+                    <div class="button-group">
+                        <button id="flipX">Flip X</button>
+                        <button id="flipY">Flip Y</button>
+                        <button id="rotateCalibraion">Rot. 90°</button>
+                    </div>
+                </li>
 
                 <li><button id="testCalibration" style="display: none;">Test Calibration</button></li>
                 <li><button id="resetCalibrationdata">Reset Calibration Data</button></li>

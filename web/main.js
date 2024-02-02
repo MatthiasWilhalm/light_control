@@ -1,5 +1,6 @@
 import { convertTrackerDataToCanvasCoordinates, getCalibrationData, getCurrentNodeInRange, getNodeOnCanvas, saveCalibrationData } from "./CalibrationManager.js";
 import { calcRandomNodes, calcRandomPath, getNextPath, getRandomNodeNeighbour } from "./PathGenerator.js";
+import { INIT_CONFIG, INIT_PRESET, NBACK_TYPES, PRESETS, PRESET_TYPES, getPresetConfigByName } from "./PresetManager.js";
 
 const URL = 'ws://localhost:8765';
 
@@ -13,7 +14,7 @@ var mainTrackerName = '';
 const currentTrackerValues = {};
 
 // change default pathMode here
-var pathMode = 24;
+var pathMode = INIT_CONFIG.pathMode;
 
 var allowTracking = true;
 var useTrackingForLights = false;
@@ -22,24 +23,13 @@ var isTrackingEmulationActive = false;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
-// is used if useTrackingForLights is true
-var currentPath = null; 
-var currentNodes = null;
-var activePaths = null;
-var reversingPath = false;
 
+// is used if useTrackingForLights is true
 // is used for partial path generation
 var currentNode = -1;
 var previousNode = -1;
+var currentPath = null; 
 
-const setReversingPath = (value) => {
-    reversingPath = value;
-    const reverseLightspath = document.getElementById('reverseLightspath');
-    if(reversingPath)
-        reverseLightspath.classList.add('button-selected');
-    else
-        reverseLightspath.classList.remove('button-selected');
-}
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -97,11 +87,7 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
 //logging
     
 document.getElementById("updateId").addEventListener("click", () => {
-    const partId = document.getElementById("participantIdInput").value;
-    socket.send(JSON.stringify({
-        path: '/participantId',
-        body: partId
-    }));
+    updateParticipantIdAndConfig();
 });
 // the idea behind this to force all loggers to store the logs to disk
 // in case they use a buffer
@@ -118,6 +104,9 @@ document.getElementById("disableLogging").addEventListener("click", () => {
         path: '/disableLogging',
         body: button.classList.contains('button-selected')
     }));
+});
+document.getElementById("presetSelect").addEventListener("change", () => {
+    updateParticipantIdAndConfig();
 });
 
 // lights
@@ -139,16 +128,7 @@ document.getElementById('all_on').addEventListener('click', () => {
 
 document.getElementById('pathType').addEventListener('click', () => {
     pathMode = pathMode === 24 ? 8 : 24;
-    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
-    const set24Paths = (is24PathMode) => {
-        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
-            if(is24PathMode)
-                return light.classList.remove('disabled');
-            if((i + 2) % 3)
-                light.classList.add('disabled');
-        });
-    } 
-    set24Paths(pathMode === 24);
+    updatePathMode();
 });
 
 document.getElementById('reverseOutput').addEventListener('click', () => {
@@ -158,7 +138,6 @@ document.getElementById('reverseOutput').addEventListener('click', () => {
 
 document.getElementById('useTrackingForLights').addEventListener('click', () => {
     const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
-    const reverseLightspath = document.getElementById('reverseLightspath');
 
     useTrackingForLightsElem.classList.toggle('button-selected');
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
@@ -166,25 +145,17 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
     document.getElementById('reset').disabled = useTrackingForLights;
     document.getElementById('all_on').disabled = useTrackingForLights;
     document.getElementById('random').disabled = useTrackingForLights;
-    reverseLightspath.style.display = useTrackingForLights ? 'block' : 'none';
-    setReversingPath(false);
     if(useTrackingForLights) {
         // asumes that the user starts at node 0
         currentNode = 0;
     } else {
-        currentNodes = null;
         currentPath = null;
-        activePaths = null;
         currentNode = -1;
         previousNode = -1;
     }
     // reset lights
     updateDisplayByPath([]);
     sendPath([]);
-});
-
-document.getElementById('reverseLightspath').addEventListener('click', () => {
-    setReversingPath(!reversingPath);    
 });
 
 // nback
@@ -220,10 +191,10 @@ document.getElementById('triggerRight').addEventListener('click', () => {
     }));
 });
 document.getElementById('updateSteps').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'nbackSteps:'+document.getElementById('nbackSteps').value
-    }));
+    updateNBackSteps(document.getElementById('nbackSteps').value);
+});
+document.getElementById('nbackTypeSelect').addEventListener('change', () => {
+    updateNBackType(document.getElementById('nbackTypeSelect').value);
 });
 
 // tracking
@@ -318,22 +289,6 @@ document.getElementById('testCalibration').addEventListener('click', () => {
     updateCanvas(vals);
 });
 
-// document.getElementById('testNodes').addEventListener('click', () => {
-//     const nodesToDraw = [];
-//     for (let i = 0; i < 5; i++) {
-//         nodesToDraw.push(getNodeOnCanvas(i, 930, 30));
-//     }
-//     console.log(nodesToDraw);
-//     updateCanvas(nodesToDraw);
-// });
-
-
-// document.getElementById('testCanvas').addEventListener('click', () => {
-//     updateCanvas([
-//         {x: Math.random()*930, y: Math.random()*930}
-//     ]);
-// });
-
 document.getElementById('resetCanvas').addEventListener('click', () => {
     updateCanvas([]);
 });
@@ -374,6 +329,56 @@ document.getElementById('toggleLog').addEventListener('click', () => {
 
 
 // functions
+
+const updateNBackSteps = (steps) => {
+    document.getElementById('nbackSteps').value = steps;
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'nbackSteps:'+steps
+    }));
+};
+
+const updateNBackType = (type) => {
+    document.getElementById('nbackTypeSelect').value = type;
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'nbackType:'+type
+    }));
+}
+
+const updatePathMode = () => {
+    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
+    const set24Paths = (is24PathMode) => {
+        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
+            if(is24PathMode)
+                return light.classList.remove('disabled');
+            if((i + 2) % 3)
+                light.classList.add('disabled');
+        });
+    } 
+    set24Paths(pathMode === 24);
+};
+
+const updateParticipantIdAndConfig = () => {
+    let presetConfig = getPresetConfigByName(document.getElementById('presetSelect').value);
+    let partId = document.getElementById("participantIdInput").value;
+
+    if(!presetConfig)
+        presetConfig = INIT_PRESET;
+
+    printLog(`using preset: ${presetConfig.name}`);
+
+    const { config } = presetConfig;
+
+    updateNBackSteps(config.nback);
+    updateNBackType(config.nbackType);
+    partId += `_${config.type}_n${config.nback}_t${config.nbackType}`;
+
+    socket.send(JSON.stringify({
+        path: '/participantId',
+        body: partId
+    }));
+}
 
 /**
  * generates the next 2 segments of the path relativ to the current node
@@ -706,6 +711,30 @@ const startTimer = (finnishText = "done") => {
     });
 }
 
+const initPresetSelection = () => {
+    const presetSelection = document.getElementById('presetSelect');
+    let presetOptions = [];
+    presetOptions.push(`<option value="none">None</option>`);
+    presetOptions = [...presetOptions,  ...PRESETS.map((preset) => 
+        `<option value="${preset.name}">${preset.name}</option>`
+    )];
+    presetSelection.innerHTML = presetOptions.join('');
+}
+
+const initNbackTypeSelect = () => {
+    const nbackTypeSelect = document.getElementById('nbackTypeSelect');
+    const nbackTypeOptions = Object.values(NBACK_TYPES).map((type) => 
+        `<option value="${type}">${type}</option>`
+    );
+    nbackTypeSelect.innerHTML = nbackTypeOptions.join('');
+}
+
 // init
 syncCalibrationDataDisplay();
 setConnectionStatusDisplay(false);
+initPresetSelection();
+initNbackTypeSelect();
+updatePathMode();
+
+document.getElementById('participantIdInput').value = INIT_CONFIG.participantId;
+updateParticipantIdAndConfig();
