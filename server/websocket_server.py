@@ -100,6 +100,8 @@ class WebSocketServer(threading.Thread):
                 # sends all the messages with the path '/log' or '/trackerdata' to the web-client
                 elif path == '/log' or path == '/trackerdata':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
+                    # if we want that the nback client also gets the tracker data
+                    # await self.send('nback', json.dumps({'path': path, 'body': body}))
 
                 # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
