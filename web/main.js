@@ -198,6 +198,12 @@ document.getElementById('updateSteps').addEventListener('click', () => {
 document.getElementById('nbackTypeSelect').addEventListener('change', () => {
     updateNBackType(document.getElementById('nbackTypeSelect').value);
 });
+document.getElementById('calibrateTorso').addEventListener('change', () => {
+    socket.send(JSON.stringify({
+        path: '/calibratetorso',
+        body: ''
+    }));    
+});
 
 // tracking
 

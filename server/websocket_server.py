@@ -107,6 +107,10 @@ class WebSocketServer(threading.Thread):
                 elif path == '/nbackLog':
                     print(body)
                     self.nback_logger.log(body, True)
+                    
+                elif path == '/calibratetorso':
+                    print("Calibrating torso")
+                    await self.send('nback', json.dumps({'path': path, 'body': body}))
 
                 else:
                     print("Unknown path: " + path)
