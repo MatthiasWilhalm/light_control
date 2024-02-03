@@ -30,6 +30,8 @@ var currentNode = -1;
 var previousNode = -1;
 var currentPath = null; 
 
+var newCalibrationData = null;
+
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -248,6 +250,27 @@ document.getElementById("rotateCalibraion").addEventListener("click", () => {
     syncCalibrationDataDisplay();
 });
 
+document.getElementById('editCalibrationdata').addEventListener('click', () => {
+    newCalibrationData = getCalibrationData();
+    toggleCalibrationDataEditView();
+});
+
+document.getElementById('resetCalibrationdata').addEventListener('click', () => {
+    // if the edit view is active, it will be closed
+    if(document.getElementById('calibrationDataDisplay').style.display === 'none') {
+        toggleCalibrationDataEditView(true);
+        return;
+    }
+    // gives warning to user
+    if(!confirm('Are you sure you want to reset the calibration data?')) return;
+    saveCalibrationData(null);
+    syncCalibrationDataDisplay();
+});
+
+document.getElementById('calibrationDataEdit').addEventListener('change', (e) => {
+    updateNewCalibrationData(JSON.parse(e.target.value));
+});
+
 // debug
 
 document.getElementById('echo').addEventListener('click', () => {
@@ -266,13 +289,6 @@ document.getElementById('addLog').addEventListener('click', () => {
     }));
     // printLog('log entry ' + logCounter);
     logCounter++;
-});
-
-document.getElementById('resetCalibrationdata').addEventListener('click', () => {
-    // gives warning to user
-    if(!confirm('Are you sure you want to reset the calibration data?')) return;
-    saveCalibrationData(null);
-    syncCalibrationDataDisplay();
 });
 
 document.getElementById('testCalibration').addEventListener('click', () => {
@@ -315,17 +331,6 @@ document.getElementById('emulateTracking').addEventListener('click', () => {
 
 document.getElementById('testPartialPath').addEventListener('click', () => {
     handlePartialPathGeneration();
-});
-
-document.getElementById('testNodes').addEventListener('click', () => {
-    const points = getCalibrationData();
-    if(!points) return;
-    updateCanvas([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN)
-    ]);
 });
 
 // other
@@ -660,10 +665,11 @@ const setTrackerStatusDisplay = (connected) => {
  * draws the given points on the canvas
  * @param {{x: number, y:number}[]} data 
  */
-const updateCanvas = (data) => {
+const updateCanvas = (data, keepCanvas) => {
     const canvas = document.getElementById('trackerMap');
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!keepCanvas)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
     data.forEach((point) => {
         ctx.beginPath();
         ctx.strokeStyle = 'green';
@@ -671,6 +677,21 @@ const updateCanvas = (data) => {
         ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
         ctx.stroke();
     });
+}
+
+const drawLines = (data, keepCanvas) => {
+    const canvas = document.getElementById('trackerMap');
+    const ctx = canvas.getContext('2d');
+    if(!keepCanvas)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 2;
+    ctx.moveTo(data[0].x, data[0].y);
+    data.forEach((point) => {
+        ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
 }
 
 /**
@@ -721,6 +742,124 @@ const startTimer = (finnishText = "done") => {
         interval = setInterval(updateTimer, 1000);
     });
 }
+
+/**
+ * 
+ * @returns {boolean} true if the calibration data edit view is active
+ */
+const toggleCalibrationDataEditView = (skipSave) => {
+    const display = document.getElementById('calibrationDataDisplay');
+    const edit = document.getElementById('calibrationDataEdit');
+    const editBtn = document.getElementById('editCalibrationdata');
+    const resetBtn = document.getElementById('resetCalibrationdata');
+
+    const setToEdit = edit.style.display === 'none';
+    setCanvasToEditView(setToEdit);
+    if(setToEdit) {
+        display.style.display = 'none';
+        const data = newCalibrationData;
+        edit.value = data ? JSON.stringify(data, null, 2) : '';
+        edit.style.display = 'block';
+        editBtn.innerHTML = 'Save';
+        resetBtn.innerHTML = 'Cancel';    
+        return setToEdit;
+    }
+    editBtn.innerHTML = 'Edit';
+    resetBtn.innerHTML = 'Reset';
+    display.style.display = 'block';
+    edit.style.display = 'none';
+    try {
+        if(!skipSave)
+            saveCalibrationData(JSON.parse(edit.value));
+        syncCalibrationDataDisplay();
+    } catch (e) {
+        printLog('could not parse calibration data');
+        console.error(e);
+    }
+    return setToEdit;
+};
+
+const updateNewCalibrationData = (update) => {
+    newCalibrationData = {...newCalibrationData, ...update};
+    const edit = document.getElementById('calibrationDataEdit');
+    edit.value = JSON.stringify(newCalibrationData, null, 2);
+    updateCanvasWithCalibrationData(newCalibrationData);
+};
+
+const setCanvasToEditView = (isEditView) => {
+    const canvas = document.getElementById('trackerMap');
+
+    const handleScroll = (e) => {
+        const scrollingDown = e.deltaY > 0;
+        const ishift = e.shiftKey;
+        const isctrl = e.ctrlKey;
+        if(isctrl)
+            e.preventDefault();
+        const value = 0.01 * (scrollingDown ? -1 : 1) * (isctrl ? 0.1 : 1);
+
+        if(ishift) {
+            newCalibrationData.maxY += value;
+            newCalibrationData.minY += value;
+        } else {
+            newCalibrationData.maxX += value;
+            newCalibrationData.minX += value;
+        }
+        updateNewCalibrationData({...newCalibrationData});
+    };
+
+    if(isEditView) {
+        canvas.style.pointerEvents = 'auto';
+        canvas.addEventListener('wheel', handleScroll);
+        updateCanvasWithCalibrationData(newCalibrationData);
+    } else {
+        canvas.style.pointerEvents = 'none';
+        canvas.removeEventListener('wheel', handleScroll);
+        updateCanvas([]);
+    }
+};
+
+/**
+ * 
+ * @param {{minY: number, maxY: number, minX: number, maxX: number}} data
+ * @returns 
+ */
+const updateCanvasWithCalibrationData = (points) => {
+    if(!points) return;
+    const xRange = points.maxX - points.minX;
+    const yRange = points.maxY - points.minY;
+    updateCanvas([]);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+    ], true);
+};
 
 const initPresetSelection = () => {
     const presetSelection = document.getElementById('presetSelect');

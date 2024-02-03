@@ -41,6 +41,20 @@ select {
     width: 100%;
 }
 
+textarea {
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    border: none;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #575757;
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    max-height: 300px;
+    min-height: 100px;
+}
+
 li .button-group {
     display: flex;
     flex-direction: row;

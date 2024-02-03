@@ -44,7 +44,10 @@
                 <li><label>Tracker</label></li>
                 <li><button id="toggleTracking">Disable Tracking</button></li>
                 <li><button id="startCalibration">Start Calibration</button></li>
-                <li><code id="calibrationDataDisplay"></code></li>
+                <li>
+                    <code id="calibrationDataDisplay"></code>
+                    <textarea id="calibrationDataEdit" style="display: none;"></textarea>
+                </li>
                 <li>
                     <div class="button-group">
                         <button id="flipX">Flip X</button>
@@ -54,14 +57,18 @@
                 </li>
 
                 <li><button id="testCalibration" style="display: none;">Test Calibration</button></li>
-                <li><button id="resetCalibrationdata">Reset Calibration Data</button></li>
+                <li>
+                    <div class="button-group">
+                        <button id="resetCalibrationdata">Reset</button>
+                        <button id="editCalibrationdata">Edit</button>
+                    </div>
+                </li>
                 <li><label>Debug</label></li>
                 <li><button id="emulateTracking">Emulate Tracking</button></li>
                 <li><button id="echo">Send Echo</button></li>
                 <li><button id="addLog">Dummy Log Msg</button></li>
                 <!-- <li><button id="testCanvas">Test Canvas</button></li> -->
                 <li><button id="resetCanvas">Reset Canvas</button></li>
-                <li><button id="testNodes">Test Nodes</button></li>
                 <li><button id="testPartialPath">Test Partial Path</button></li>
             </ul>
             <div class="connectionStatus">
