@@ -204,14 +204,22 @@ document.getElementById('nbackTypeSelect').addEventListener('change', () => {
 document.getElementById('toggleTracking').addEventListener('click', () => {
     allowTracking = !allowTracking;
     if(allowTracking) {
-        document.getElementById('toggleTracking').innerText = 'Disable Tracking';
+        document.getElementById('toggleTracking').classList.remove('button-selected');
     } else {
-        document.getElementById('toggleTracking').innerText = 'Enable Tracking';
+        document.getElementById('toggleTracking').classList.add('button-selected');
     }
 });
 
 document.getElementById('startCalibration').addEventListener('click', async () => {
-    if(!mainTrackerName || !currentTrackerValues) return;
+    if(!mainTrackerName || !currentTrackerValues) {
+        alert('no tracker data available');
+        return;
+    }
+
+    if(getCalibrationData()) {
+        alert('calibration data already exists, please reset it first');
+        return;
+    }
 
     await startTimer("calibrating");
     const val1 = parseFloat(currentTrackerValues[mainTrackerName].x);
@@ -779,6 +787,10 @@ const toggleCalibrationDataEditView = (skipSave) => {
     return setToEdit;
 };
 
+/**
+ * 
+ * @param {{minY: number, maxY: number, minX: number, maxX: number}} update
+ */
 const updateNewCalibrationData = (update) => {
     newCalibrationData = {...newCalibrationData, ...update};
     const edit = document.getElementById('calibrationDataEdit');
@@ -786,6 +798,11 @@ const updateNewCalibrationData = (update) => {
     updateCanvasWithCalibrationData(newCalibrationData);
 };
 
+/**
+ * is true the scroll event will be used to change the calibration data
+ * as well as a preview of the calibration data on the canvas is shown
+ * @param {boolean} isEditView 
+ */
 const setCanvasToEditView = (isEditView) => {
     const canvas = document.getElementById('trackerMap');
 
