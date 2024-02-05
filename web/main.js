@@ -71,7 +71,15 @@ socket.addEventListener('message', (event) => {
             handleTrackerData(message.body);
             break;
         case '/participantId':
+            const partId = message.body;
+            if(partId.includes('_')) {
+                document.getElementById("filnameDisplay").innerText = message.body+'.csv';
+                const [id, type, nback, nbackType] = partId.split('_');
+                document.getElementById("participantIdInput").value = id;
+                break;
+            }
             document.getElementById("participantIdInput").value = message.body;
+            document.getElementById("filnameDisplay").value = message.body+'.csv';
             break;
     }    
 });
@@ -207,7 +215,7 @@ document.getElementById('updateSteps').addEventListener('click', () => {
 document.getElementById('nbackTypeSelect').addEventListener('change', () => {
     updateNBackType(document.getElementById('nbackTypeSelect').value);
 });
-document.getElementById('calibrateTorso').addEventListener('change', () => {
+document.getElementById('calibrateTorso').addEventListener('click', () => {
     socket.send(JSON.stringify({
         path: '/calibratetorso',
         body: ''

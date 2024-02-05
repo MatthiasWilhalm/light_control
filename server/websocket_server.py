@@ -101,7 +101,7 @@ class WebSocketServer(threading.Thread):
                 elif path == '/log' or path == '/trackerdata':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
                     # if we want that the nback client also gets the tracker data
-                    # await self.send('nback', json.dumps({'path': path, 'body': body}))
+                    await self.send('nback', json.dumps({'path': path, 'body': body}))
 
                 # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
@@ -127,10 +127,13 @@ class WebSocketServer(threading.Thread):
             await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'web-client'))
             
     async def send(self, connection_id, message):
-        if connection_id in self.active_connections:
-            await self.active_connections[connection_id].send(message)
-        else:
-            print("Connection " + str(connection_id) + " not found")
+        try:
+            if connection_id in self.active_connections:
+                await self.active_connections[connection_id].send(message)
+            else:
+                print("Connection " + str(connection_id) + " not found")
+        except Exception as e:
+            print("Failed to send message to " + str(connection_id) + ": " + str(e))
             
     async def log(self, message, use_timestamp = False):
         self.operation_logger.log(message, use_timestamp)

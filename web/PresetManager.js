@@ -28,13 +28,30 @@ export const INIT_PRESET = {
 
 export const PRESETS = [
     {
-        name: "Config 1",
+        name: "Both_2_Head",
         config: {
             nback: 2,
             nbackType: NBACK_TYPES.HEAD,
             type: PRESET_TYPES.BOTH
         }
-    }
+    },
+    {
+        name: "Both_3_Torso",
+        config: {
+            nback: 3,
+            nbackType: NBACK_TYPES.TORSO,
+            type: PRESET_TYPES.BOTH
+        }
+    },
+    {
+        name: "Both_3_Hand",
+        config: {
+            nback: 4,
+            nbackType: NBACK_TYPES.HAND,
+            type: PRESET_TYPES.BOTH
+        }
+    },
+    
 ];
 
 export const getPresetConfigByName = (name) => {
