@@ -263,3 +263,7 @@ svg {
 #trackerMap {
     pointer-events: none;
 }
+
+.hidden {
+    display: none;
+}

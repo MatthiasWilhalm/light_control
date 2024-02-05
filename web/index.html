@@ -11,6 +11,7 @@
     <div class="grid">
         <div id="sidepanel">
             <ul>
+                <li><button id="toggleStudyView">Study View</button></li>
                 <li><label>Logging</label></li>
                 <li><input id="participantIdInput" placeholder="participant ID"></li>
                 <li><select id="presetSelect"></select></li>
@@ -25,13 +26,13 @@
                         <button id="all_on">All ON</button>
                     </div>
                 </li>
-                <li><button id="random">Random Path</button></li>
-                <li><button id="pathType">Active Paths: 24</button></li>
-                <li><button id="reverseOutput">Reverse Output</button></li>
+                <li class="non-essential"><button id="random">Random Path</button></li>
+                <li class="non-essential"><button id="pathType">Active Paths: 24</button></li>
+                <li class="non-essential"><button id="reverseOutput">Reverse Output</button></li>
                 <li><label>N-Back</label></li>
                 <li><select id="nbackTypeSelect"></select></li>
                 <li><button id="startTask">Start Task</button></li>
-                <li><button id="startBaseline">Start Baseline Task</button></li>
+                <li class="non-essential"><button id="startBaseline">Start Baseline Task</button></li>
                 <li><button id="stopTask">Stop Task</button></li>
                 <li>
                     <div class="button-group">
@@ -42,14 +43,14 @@
                 <li><input id="nbackSteps" value="1" type="number" min="0"></li>
                 <li><button id="updateSteps">Update Steps</button></li>
                 <li><button id="calibrateTorso">Calibrate Torso</button></li>
-                <li><label>Tracker</label></li>
-                <li><button id="toggleTracking">Disable Tracking</button></li>
-                <li><button id="startCalibration">Start Calibration</button></li>
-                <li>
+                <li class="non-essential"><label>Tracker</label></li>
+                <li class="non-essential"><button id="toggleTracking">Disable Tracking</button></li>
+                <li class="non-essential"><button id="startCalibration">Start Calibration</button></li>
+                <li class="non-essential">
                     <code id="calibrationDataDisplay"></code>
                     <textarea id="calibrationDataEdit" style="display: none;"></textarea>
                 </li>
-                <li>
+                <li class="non-essential">
                     <div class="button-group">
                         <button id="flipX">Flip X</button>
                         <button id="flipY">Flip Y</button>
@@ -58,19 +59,19 @@
                 </li>
 
                 <li><button id="testCalibration" style="display: none;">Test Calibration</button></li>
-                <li>
+                <li class="non-essential">
                     <div class="button-group">
                         <button id="resetCalibrationdata">Reset</button>
                         <button id="editCalibrationdata">Edit</button>
                     </div>
                 </li>
-                <li><label>Debug</label></li>
-                <li><button id="emulateTracking">Emulate Tracking</button></li>
-                <li><button id="echo">Send Echo</button></li>
-                <li><button id="addLog">Dummy Log Msg</button></li>
+                <li class="non-essential"><label>Debug</label></li>
+                <li class="non-essential"><button id="emulateTracking">Emulate Tracking</button></li>
+                <li class="non-essential"><button id="echo">Send Echo</button></li>
+                <li class="non-essential"><button id="addLog">Dummy Log Msg</button></li>
                 <!-- <li><button id="testCanvas">Test Canvas</button></li> -->
-                <li><button id="resetCanvas">Reset Canvas</button></li>
-                <li><button id="testPartialPath">Test Partial Path</button></li>
+                <li class="non-essential"><button id="resetCanvas">Reset Canvas</button></li>
+                <li class="non-essential"><button id="testPartialPath">Test Partial Path</button></li>
             </ul>
             <div class="connectionStatus">
                 <div id="connectionStatusIndicator"></div>

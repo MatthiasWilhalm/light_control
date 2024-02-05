@@ -86,6 +86,15 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     });
 });
 
+document.getElementById('toggleStudyView').addEventListener('click', () => {
+    document.getElementById('toggleStudyView').classList.toggle('button-selected');
+    const hide = document.getElementById('toggleStudyView').classList.contains('button-selected');
+
+    Array.from(document.getElementsByClassName('non-essential')).forEach((elem) =>
+        hide ? elem.classList.add('hidden') : elem.classList.remove('hidden')
+    );
+});
+
 //logging
     
 document.getElementById("updateId").addEventListener("click", () => {
