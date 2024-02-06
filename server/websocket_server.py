@@ -15,6 +15,7 @@ class WebSocketServer(threading.Thread):
         self.storage = storage
         self.loop = None
         self.active_connections = {}
+        self.packageTracker = 0 # only evety 6th package is send to the nback client
         
     # handles incoming messages from the websockets
     async def _msg_received(self, websocket, ws_path):
@@ -98,10 +99,18 @@ class WebSocketServer(threading.Thread):
                     await self.broadcast_except_web_client(message)
 
                 # sends all the messages with the path '/log' or '/trackerdata' to the web-client
-                elif path == '/log' or path == '/trackerdata':
+                elif path == '/log':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
+
+                elif path == '/trackerdata':
+                    await self.send('web-client', json.dumps({'path': path, 'body': body}))
+                    
                     # if we want that the nback client also gets the tracker data
-                    await self.send('nback', json.dumps({'path': path, 'body': body}))
+                    if(self.packageTracker == 3):
+                        await self.send('nback', json.dumps({'path': path, 'body': body}))
+                        self.packageTracker = 0
+                    else:
+                        self.packageTracker += 1
 
                 # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
@@ -125,6 +134,10 @@ class WebSocketServer(threading.Thread):
     async def broadcast_except_web_client(self, message):
         if self.active_connections:
             await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'web-client'))
+    
+    async def broadcast_except_tracker(self, message):
+        if self.active_connections:
+            await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'tracker'))
             
     async def send(self, connection_id, message):
         try:
