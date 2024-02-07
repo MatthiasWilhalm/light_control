@@ -272,3 +272,29 @@ svg {
 .hidden {
     display: none;
 }
+
+#manualTrackerCalibrationDisplay {
+    position: absolute;
+    height: max-content;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    bottom: 50px;
+    border-radius: 5px;
+}
+
+#manualTrackerCalibrationDisplay div {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #646464;
+    background-color: #b1b1b1;
+    text-align: center;
+    padding-top: 10px;
+    cursor: pointer;
+    z-index: 3;
+}
+
+#manualTrackerCalibrationDisplay div:hover {
+    background-color: #505050;
+    color: #ffffff;
+}

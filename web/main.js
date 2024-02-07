@@ -286,6 +286,29 @@ document.getElementById('editCalibrationdata').addEventListener('click', () => {
     toggleCalibrationDataEditView();
 });
 
+document.getElementById("trackerMinX").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'minX');
+});
+document.getElementById("trackerMaxX").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'maxX');
+});
+document.getElementById("trackerMinY").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'minY');
+});
+document.getElementById("trackerMaxY").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'maxY');
+});
+
+const manualUpdatetracking = (e, key) => {
+    console.log("scoll");
+    if(!newCalibrationData) return;
+    const scrollingDown = e.deltaY > 0;
+    const isctrl = e.ctrlKey;
+    const isshift = e.shiftKey;
+    const value = newCalibrationData[key] + (scrollingDown ? -1 : 1) * (isctrl ? 0.01 : 0.1) * (isshift ? 0.1 : 1);
+    updateNewCalibrationData({[key]: value});
+};
+
 document.getElementById('resetCalibrationdata').addEventListener('click', () => {
     // if the edit view is active, it will be closed
     if(document.getElementById('calibrationDataDisplay').style.display === 'none') {
@@ -490,6 +513,7 @@ const printLog = (message) => {
  * @returns 
  */
 const handleTrackerData = (data, skipConversion) => {
+    const editMode = document.getElementById('calibrationDataDisplay').style.display === 'none';
     if(!allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
@@ -501,7 +525,13 @@ const handleTrackerData = (data, skipConversion) => {
     if(skipConversion) {
         coords = {x, y};
     } else {
-        coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), CANVAS_SIZE, CANVAS_MARGIN);
+        coords = convertTrackerDataToCanvasCoordinates(
+            parseFloat(x),
+            parseFloat(z),
+            CANVAS_SIZE,
+            CANVAS_MARGIN,
+            (editMode ? newCalibrationData : undefined)
+        );
     }
     
     if(!coords) {
@@ -513,6 +543,10 @@ const handleTrackerData = (data, skipConversion) => {
     activateSVGNodes([nodesInRange]);
     updatePathWithTracking(nodesInRange);
     updateCanvas([coords]);
+    // so outlines wont be overdrawn
+    if(editMode) {
+        updateCanvasWithCalibrationData(newCalibrationData, true);
+    }
 }
 
 /**
@@ -783,6 +817,7 @@ const toggleCalibrationDataEditView = (skipSave) => {
     const edit = document.getElementById('calibrationDataEdit');
     const editBtn = document.getElementById('editCalibrationdata');
     const resetBtn = document.getElementById('resetCalibrationdata');
+    const manualEdit = document.getElementById('manualTrackerCalibrationDisplay');
 
     const setToEdit = edit.style.display === 'none';
     setCanvasToEditView(setToEdit);
@@ -792,13 +827,15 @@ const toggleCalibrationDataEditView = (skipSave) => {
         edit.value = data ? JSON.stringify(data, null, 2) : '';
         edit.style.display = 'block';
         editBtn.innerHTML = 'Save';
-        resetBtn.innerHTML = 'Cancel';    
+        resetBtn.innerHTML = 'Cancel'; 
+        manualEdit.style.display = 'flex';   
         return setToEdit;
     }
     editBtn.innerHTML = 'Edit';
     resetBtn.innerHTML = 'Reset';
     display.style.display = 'block';
     edit.style.display = 'none';
+    manualEdit.style.display = 'none';
     try {
         if(!skipSave)
             saveCalibrationData(JSON.parse(edit.value));
@@ -863,41 +900,42 @@ const setCanvasToEditView = (isEditView) => {
  * @param {{minY: number, maxY: number, minX: number, maxX: number}} data
  * @returns 
  */
-const updateCanvasWithCalibrationData = (points) => {
+const updateCanvasWithCalibrationData = (points, keepCanvas) => {
     if(!points) return;
     const xRange = points.maxX - points.minX;
     const yRange = points.maxY - points.minY;
-    updateCanvas([]);
+    if(!keepCanvas)
+        updateCanvas([]);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
     ], true);
 };
 

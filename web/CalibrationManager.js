@@ -54,8 +54,8 @@ export const getCalibrationData = () => {
  * @param {number} verticalScale the proportion of the vertical axis to the horizontal axis
  * @returns {{x: number, y: number}} pixel coordinates on the canvas
  */
-export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBorderOffset) => {
-    const data = getCalibrationData();
+export const convertTrackerDataToCanvasCoordinates = (x, y, canvasSize, canvasBorderOffset, calibrationDataOverwrite) => {
+    const data = calibrationDataOverwrite ?? getCalibrationData();
     if (!data) return null;
 
     const rangeX = Math.abs(data.maxX - data.minX);
