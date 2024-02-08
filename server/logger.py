@@ -9,9 +9,13 @@ class Logger:
         self.pauseLogging = False
         os.makedirs(os.path.dirname(path+filename), exist_ok=True)
 
-    def set_filename(self, filename):
+    def set_filename(self, filename, header):
         self.filename = filename
-        os.makedirs(os.path.dirname(self.path+filename), exist_ok=True)
+        # os.makedirs(os.path.dirname(self.path+filename), exist_ok=True)
+        if not os.path.isfile(self.path+filename):
+            with open(self.path+filename, 'w') as file:
+                file.write(header+"\n")
+
     
     def set_pause_logging(self, pauseLogging):
         self.pauseLogging = pauseLogging

@@ -73,8 +73,8 @@ class WebSocketServer(threading.Thread):
                 elif path == '/participantId':
                     await self.log("Setting participant ID to " + str(body), True)
                     self.storage.set_participant_id(body)
-                    self.nback_logger.set_filename(body + '.csv')
-                    self.light_logger.set_filename(body + '.csv')
+                    self.nback_logger.set_filename(body + '.csv', "timestamp,lastColor,nbackColor,trashColor,isCorrect,nbackCount")
+                    self.light_logger.set_filename(body + '.csv', "timestamp,lightState")
                     await self.broadcast_except_web_client(message)
 
                 # sends the participant ID to the the client that requested it
@@ -115,7 +115,7 @@ class WebSocketServer(threading.Thread):
                 # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
                     print(body)
-                    self.nback_logger.log(body, True)
+                    self.nback_logger.log(body)
                     
                 elif path == '/calibratetorso':
                     print("Calibrating torso")

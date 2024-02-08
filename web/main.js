@@ -439,10 +439,11 @@ const updateParticipantIdAndConfig = () => {
     printLog(`using preset: ${presetConfig.name}`);
 
     const { config } = presetConfig;
+    const presetId = presetConfig.id;
 
     updateNBackSteps(config.nback);
     updateNBackType(config.nbackType);
-    partId += `_${config.type}_n${config.nback}_t${config.nbackType}`;
+    partId += `_${presetId}_${config.type}_n${config.nback}_t${config.nbackType}`;
 
     socket.send(JSON.stringify({
         path: '/participantId',
