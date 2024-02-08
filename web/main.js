@@ -9,6 +9,9 @@ const socket = new WebSocket(URL);
 const CANVAS_SIZE = 930;
 const CANVAS_MARGIN = 30;
 
+const TASK_DURATION = 60 * 2; // 2 minutes in seconds
+// const TASK_DURATION = 30;
+
 
 var mainTrackerName = '';
 const currentTrackerValues = {};
@@ -31,6 +34,8 @@ var previousNode = -1;
 var currentPath = null; 
 
 var newCalibrationData = null;
+
+var taskTimer = null;
 
 
 // Connection opened
@@ -81,6 +86,9 @@ socket.addEventListener('message', (event) => {
             document.getElementById("participantIdInput").value = message.body;
             document.getElementById("filnameDisplay").value = message.body+'.csv';
             break;
+        case '/disableLogging':
+            document.getElementById("disableLogging").classList.toggle('button-selected', message.body);
+            break;
     }    
 });
 
@@ -117,16 +125,53 @@ document.getElementById("forceSaveLogs").addEventListener("click", () => {
     }));
 });
 document.getElementById("disableLogging").addEventListener("click", () => {
-    const button = document.getElementById("disableLogging");
-    button.classList.toggle('button-selected');
-    socket.send(JSON.stringify({
-        path: '/disableLogging',
-        body: button.classList.contains('button-selected')
-    }));
+    toggleLogging();
 });
 document.getElementById("presetSelect").addEventListener("change", () => {
     updateParticipantIdAndConfig();
 });
+
+document.getElementById("startTask").addEventListener("click", () => {
+    const button = document.getElementById("startTask");
+    if(taskTimer) { // timer is running
+        stopTaskTimer();
+        toggleLogging(false);
+        button.innerText = "Start Task";
+        socket.send(JSON.stringify({
+            path: '/nback',
+            body: 'stopTask'
+        }));
+        toggleUseTrackingForLights(false);
+        return;
+    }
+    updateParticipantIdAndConfig();
+    toggleLogging(true);
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'startTask'
+    }));
+    toggleUseTrackingForLights(true);
+    
+    button.innerText = "Stop Task";
+    startTaskTimer(() => {
+        button.innerText = "Start Task";
+        toggleLogging(false);
+        socket.send(JSON.stringify({
+            path: '/nback',
+            body: 'stopTask'
+        }));
+        toggleUseTrackingForLights(false);
+    });
+});
+
+const toggleLogging = (force) => {
+    const button = document.getElementById("disableLogging");
+    button.classList.toggle('button-selected', force === undefined ? undefined : !force);
+    socket.send(JSON.stringify({
+        path: '/disableLogging',
+        body: button.classList.contains('button-selected')
+    }));
+};
 
 // lights
 
@@ -156,9 +201,13 @@ document.getElementById('reverseOutput').addEventListener('click', () => {
 });
 
 document.getElementById('useTrackingForLights').addEventListener('click', () => {
+    toggleUseTrackingForLights();
+});
+
+const toggleUseTrackingForLights = (force) => {
     const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
 
-    useTrackingForLightsElem.classList.toggle('button-selected');
+    useTrackingForLightsElem.classList.toggle('button-selected', force);
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
 
     document.getElementById('reset').disabled = useTrackingForLights;
@@ -173,9 +222,9 @@ document.getElementById('useTrackingForLights').addEventListener('click', () => 
         previousNode = -1;
     }
     // reset lights
-    updateDisplayByPath([]);
-    sendPath([]);
-});
+    // updateDisplayByPath([]);
+    // sendPath([]);
+};
 
 // nback
 
@@ -540,6 +589,8 @@ const handleTrackerData = (data, skipConversion) => {
         return;
     }
     const nodesInRange = getCurrentNodeInRange(coords.x, coords.y);
+    if(currentNode === -1 && nodesInRange === 0 && useTrackingForLights)
+        currentNode = 0;
     trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords, nodesInRange}, null, 2);
     activateSVGNodes([nodesInRange]);
     updatePathWithTracking(nodesInRange);
@@ -957,6 +1008,32 @@ const initNbackTypeSelect = () => {
     );
     nbackTypeSelect.innerHTML = nbackTypeOptions.join('');
 }
+
+const startTaskTimer = (next) => {
+    const timer = document.getElementById('taskTimer');
+    timer.style.display = 'block';
+    let durationInSeconds = TASK_DURATION;
+    const updateTimer = () => {
+        if(durationInSeconds >= 0)
+            timer.innerText = `${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`;
+        durationInSeconds--;
+        if(durationInSeconds === -1) {
+            timer.innerText = "0:00";
+            timer.style.display = 'none';
+            clearInterval(taskTimer);
+            next?.();
+        }
+    };
+    updateTimer();
+    taskTimer = setInterval(updateTimer, 1000);
+};
+
+const stopTaskTimer = () => {
+    clearInterval(taskTimer);
+    const timer = document.getElementById('taskTimer');
+    timer.innerText = "0:00";
+    timer.style.display = 'none';
+};
 
 // init
 syncCalibrationDataDisplay();

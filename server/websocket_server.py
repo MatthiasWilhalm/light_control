@@ -16,6 +16,7 @@ class WebSocketServer(threading.Thread):
         self.loop = None
         self.active_connections = {}
         self.packageTracker = 0 # only evety 6th package is send to the nback client
+        self.disableLogging = True
         
     # handles incoming messages from the websockets
     async def _msg_received(self, websocket, ws_path):
@@ -79,6 +80,7 @@ class WebSocketServer(threading.Thread):
 
                 # sends the participant ID to the the client that requested it
                 elif path == '/participantIdRequest':
+                    await websocket.send(json.dumps({'path': '/disableLogging', 'body': self.disableLogging}))
                     await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
                     await self.log("Sending participant ID ("+self.storage.get_participant_id()+") to " + str(connection_id), True)
 
@@ -94,6 +96,7 @@ class WebSocketServer(threading.Thread):
                         await self.log("disable Logging", body)
                     else:
                         await self.log("enable Logging", body)
+                    self.disableLogging = body
                     self.nback_logger.set_pause_logging(body)
                     self.light_logger.set_pause_logging(body)
                     await self.broadcast_except_web_client(message)

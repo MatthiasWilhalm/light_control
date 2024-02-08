@@ -299,3 +299,15 @@ svg {
     background-color: #505050;
     color: #ffffff;
 }
+
+#taskTimer {
+    position: absolute;
+    bottom: 0px;
+    width: 100px;
+    height: max-content;
+    font-weight: bold;
+    font-style: italic;
+    z-index: 3;
+    font-size: 20pt;
+    margin: 0;
+}
