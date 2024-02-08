@@ -1,5 +1,6 @@
 import { convertTrackerDataToCanvasCoordinates, getCalibrationData, getCurrentNodeInRange, getNodeOnCanvas, saveCalibrationData } from "./CalibrationManager.js";
-import { calcRandomNodes, calcRandomPath, getNextPath } from "./PathGenerator.js";
+import { calcRandomNodes, calcRandomPath, getNextPath, getRandomNodeNeighbour } from "./PathGenerator.js";
+import { INIT_CONFIG, INIT_PRESET, NBACK_TYPES, PRESETS, PRESET_TYPES, getPresetConfigByName } from "./PresetManager.js";
 
 const URL = 'ws://localhost:8765';
 
@@ -8,12 +9,15 @@ const socket = new WebSocket(URL);
 const CANVAS_SIZE = 930;
 const CANVAS_MARGIN = 30;
 
+const TASK_DURATION = 60 * 2; // 2 minutes in seconds
+// const TASK_DURATION = 30;
+
 
 var mainTrackerName = '';
 const currentTrackerValues = {};
 
 // change default pathMode here
-var pathMode = 24;
+var pathMode = INIT_CONFIG.pathMode;
 
 var allowTracking = true;
 var useTrackingForLights = false;
@@ -22,20 +26,17 @@ var isTrackingEmulationActive = false;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
-// is used if useTrackingForLights is true
-var currentPath = null; 
-var currentNodes = null;
-var activePaths = null;
-var reversingPath = false;
 
-const setReversingPath = (value) => {
-    reversingPath = value;
-    const reverseLightspath = document.getElementById('reverseLightspath');
-    if(reversingPath)
-        reverseLightspath.classList.add('button-selected');
-    else
-        reverseLightspath.classList.remove('button-selected');
-}
+// is used if useTrackingForLights is true
+// is used for partial path generation
+var currentNode = -1;
+var previousNode = -1;
+var currentPath = null; 
+
+var newCalibrationData = null;
+
+var taskTimer = null;
+
 
 // Connection opened
 socket.addEventListener('open', (event) => {
@@ -71,10 +72,22 @@ socket.addEventListener('message', (event) => {
             printLog(message.body);
             break;
         case '/trackerdata':
+            if(isTrackingEmulationActive) break;
             handleTrackerData(message.body);
             break;
         case '/participantId':
+            const partId = message.body;
+            if(partId.includes('_')) {
+                document.getElementById("filnameDisplay").innerText = message.body+'.csv';
+                const [id, type, nback, nbackType] = partId.split('_');
+                document.getElementById("participantIdInput").value = id;
+                break;
+            }
             document.getElementById("participantIdInput").value = message.body;
+            document.getElementById("filnameDisplay").value = message.body+'.csv';
+            break;
+        case '/disableLogging':
+            document.getElementById("disableLogging").classList.toggle('button-selected', message.body);
             break;
     }    
 });
@@ -89,14 +102,19 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     });
 });
 
+document.getElementById('toggleStudyView').addEventListener('click', () => {
+    document.getElementById('toggleStudyView').classList.toggle('button-selected');
+    const hide = document.getElementById('toggleStudyView').classList.contains('button-selected');
+
+    Array.from(document.getElementsByClassName('non-essential')).forEach((elem) =>
+        hide ? elem.classList.add('hidden') : elem.classList.remove('hidden')
+    );
+});
+
 //logging
     
 document.getElementById("updateId").addEventListener("click", () => {
-    const partId = document.getElementById("participantIdInput").value;
-    socket.send(JSON.stringify({
-        path: '/participantId',
-        body: partId
-    }));
+    updateParticipantIdAndConfig();
 });
 // the idea behind this to force all loggers to store the logs to disk
 // in case they use a buffer
@@ -107,13 +125,53 @@ document.getElementById("forceSaveLogs").addEventListener("click", () => {
     }));
 });
 document.getElementById("disableLogging").addEventListener("click", () => {
+    toggleLogging();
+});
+document.getElementById("presetSelect").addEventListener("change", () => {
+    updateParticipantIdAndConfig();
+});
+
+document.getElementById("startTask").addEventListener("click", () => {
+    const button = document.getElementById("startTask");
+    if(taskTimer) { // timer is running
+        stopTaskTimer();
+        toggleLogging(false);
+        button.innerText = "Start Task";
+        socket.send(JSON.stringify({
+            path: '/nback',
+            body: 'stopTask'
+        }));
+        toggleUseTrackingForLights(false);
+        return;
+    }
+    updateParticipantIdAndConfig();
+    toggleLogging(true);
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'startTask'
+    }));
+    toggleUseTrackingForLights(true);
+    
+    button.innerText = "Stop Task";
+    startTaskTimer(() => {
+        button.innerText = "Start Task";
+        toggleLogging(false);
+        socket.send(JSON.stringify({
+            path: '/nback',
+            body: 'stopTask'
+        }));
+        toggleUseTrackingForLights(false);
+    });
+});
+
+const toggleLogging = (force) => {
     const button = document.getElementById("disableLogging");
-    button.classList.toggle('button-selected');
+    button.classList.toggle('button-selected', force === undefined ? undefined : !force);
     socket.send(JSON.stringify({
         path: '/disableLogging',
         body: button.classList.contains('button-selected')
     }));
-});
+};
 
 // lights
 
@@ -134,16 +192,7 @@ document.getElementById('all_on').addEventListener('click', () => {
 
 document.getElementById('pathType').addEventListener('click', () => {
     pathMode = pathMode === 24 ? 8 : 24;
-    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
-    const set24Paths = (is24PathMode) => {
-        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
-            if(is24PathMode)
-                return light.classList.remove('disabled');
-            if((i + 2) % 3)
-                light.classList.add('disabled');
-        });
-    } 
-    set24Paths(pathMode === 24);
+    updatePathMode();
 });
 
 document.getElementById('reverseOutput').addEventListener('click', () => {
@@ -152,32 +201,30 @@ document.getElementById('reverseOutput').addEventListener('click', () => {
 });
 
 document.getElementById('useTrackingForLights').addEventListener('click', () => {
-    const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
-    const reverseLightspath = document.getElementById('reverseLightspath');
+    toggleUseTrackingForLights();
+});
 
-    useTrackingForLightsElem.classList.toggle('button-selected');
+const toggleUseTrackingForLights = (force) => {
+    const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
+
+    useTrackingForLightsElem.classList.toggle('button-selected', force);
     useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
 
     document.getElementById('reset').disabled = useTrackingForLights;
     document.getElementById('all_on').disabled = useTrackingForLights;
     document.getElementById('random').disabled = useTrackingForLights;
-    reverseLightspath.style.display = useTrackingForLights ? 'block' : 'none';
-    setReversingPath(false);
     if(useTrackingForLights) {
-        currentNodes = calcRandomNodes();
-        currentPath = calcRandomPath(pathMode === 8, currentNodes);
+        // asumes that the user starts at node 0
+        currentNode = 0;
     } else {
-        currentNodes = null;
         currentPath = null;
+        currentNode = -1;
+        previousNode = -1;
     }
     // reset lights
-    updateDisplayByPath([]);
-    sendPath([]);
-});
-
-document.getElementById('reverseLightspath').addEventListener('click', () => {
-    setReversingPath(!reversingPath);    
-});
+    // updateDisplayByPath([]);
+    // sendPath([]);
+};
 
 // nback
 
@@ -212,10 +259,16 @@ document.getElementById('triggerRight').addEventListener('click', () => {
     }));
 });
 document.getElementById('updateSteps').addEventListener('click', () => {
+    updateNBackSteps(document.getElementById('nbackSteps').value);
+});
+document.getElementById('nbackTypeSelect').addEventListener('change', () => {
+    updateNBackType(document.getElementById('nbackTypeSelect').value);
+});
+document.getElementById('calibrateTorso').addEventListener('click', () => {
     socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'nbackSteps:'+document.getElementById('nbackSteps').value
-    }));
+        path: '/calibratetorso',
+        body: ''
+    }));    
 });
 
 // tracking
@@ -223,14 +276,22 @@ document.getElementById('updateSteps').addEventListener('click', () => {
 document.getElementById('toggleTracking').addEventListener('click', () => {
     allowTracking = !allowTracking;
     if(allowTracking) {
-        document.getElementById('toggleTracking').innerText = 'Disable Tracking';
+        document.getElementById('toggleTracking').classList.remove('button-selected');
     } else {
-        document.getElementById('toggleTracking').innerText = 'Enable Tracking';
+        document.getElementById('toggleTracking').classList.add('button-selected');
     }
 });
 
 document.getElementById('startCalibration').addEventListener('click', async () => {
-    if(!mainTrackerName || !currentTrackerValues) return;
+    if(!mainTrackerName || !currentTrackerValues) {
+        alert('no tracker data available');
+        return;
+    }
+
+    if(getCalibrationData()) {
+        alert('calibration data already exists, please reset it first');
+        return;
+    }
 
     await startTimer("calibrating");
     const val1 = parseFloat(currentTrackerValues[mainTrackerName].x);
@@ -269,6 +330,50 @@ document.getElementById("rotateCalibraion").addEventListener("click", () => {
     syncCalibrationDataDisplay();
 });
 
+document.getElementById('editCalibrationdata').addEventListener('click', () => {
+    newCalibrationData = getCalibrationData();
+    toggleCalibrationDataEditView();
+});
+
+document.getElementById("trackerMinX").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'minX');
+});
+document.getElementById("trackerMaxX").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'maxX');
+});
+document.getElementById("trackerMinY").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'minY');
+});
+document.getElementById("trackerMaxY").addEventListener("wheel", (e) => {
+    manualUpdatetracking(e, 'maxY');
+});
+
+const manualUpdatetracking = (e, key) => {
+    console.log("scoll");
+    if(!newCalibrationData) return;
+    const scrollingDown = e.deltaY > 0;
+    const isctrl = e.ctrlKey;
+    const isshift = e.shiftKey;
+    const value = newCalibrationData[key] + (scrollingDown ? -1 : 1) * (isctrl ? 0.01 : 0.1) * (isshift ? 0.1 : 1);
+    updateNewCalibrationData({[key]: value});
+};
+
+document.getElementById('resetCalibrationdata').addEventListener('click', () => {
+    // if the edit view is active, it will be closed
+    if(document.getElementById('calibrationDataDisplay').style.display === 'none') {
+        toggleCalibrationDataEditView(true);
+        return;
+    }
+    // gives warning to user
+    if(!confirm('Are you sure you want to reset the calibration data?')) return;
+    saveCalibrationData(null);
+    syncCalibrationDataDisplay();
+});
+
+document.getElementById('calibrationDataEdit').addEventListener('change', (e) => {
+    updateNewCalibrationData(JSON.parse(e.target.value));
+});
+
 // debug
 
 document.getElementById('echo').addEventListener('click', () => {
@@ -289,13 +394,6 @@ document.getElementById('addLog').addEventListener('click', () => {
     logCounter++;
 });
 
-document.getElementById('resetCalibrationdata').addEventListener('click', () => {
-    // gives warning to user
-    if(!confirm('Are you sure you want to reset the calibration data?')) return;
-    saveCalibrationData(null);
-    syncCalibrationDataDisplay();
-});
-
 document.getElementById('testCalibration').addEventListener('click', () => {
     if(getCalibrationData()) return;
     saveCalibrationData({max: 4, min: -4});
@@ -309,22 +407,6 @@ document.getElementById('testCalibration').addEventListener('click', () => {
     vals.forEach((val, i) => console.log(`val${i}`, val));
     updateCanvas(vals);
 });
-
-// document.getElementById('testNodes').addEventListener('click', () => {
-//     const nodesToDraw = [];
-//     for (let i = 0; i < 5; i++) {
-//         nodesToDraw.push(getNodeOnCanvas(i, 930, 30));
-//     }
-//     console.log(nodesToDraw);
-//     updateCanvas(nodesToDraw);
-// });
-
-
-// document.getElementById('testCanvas').addEventListener('click', () => {
-//     updateCanvas([
-//         {x: Math.random()*930, y: Math.random()*930}
-//     ]);
-// });
 
 document.getElementById('resetCanvas').addEventListener('click', () => {
     updateCanvas([]);
@@ -350,6 +432,10 @@ document.getElementById('emulateTracking').addEventListener('click', () => {
     trackerMap.style.pointerEvents = 'auto';
 });
 
+document.getElementById('testPartialPath').addEventListener('click', () => {
+    handlePartialPathGeneration();
+});
+
 // other
 
 document.getElementById('toggleLog').addEventListener('click', () => {
@@ -362,6 +448,79 @@ document.getElementById('toggleLog').addEventListener('click', () => {
 
 
 // functions
+
+const updateNBackSteps = (steps) => {
+    document.getElementById('nbackSteps').value = steps;
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'nbackSteps:'+steps
+    }));
+};
+
+const updateNBackType = (type) => {
+    document.getElementById('nbackTypeSelect').value = type;
+    socket.send(JSON.stringify({
+        path: '/nback',
+        body: 'nbackType:'+type
+    }));
+}
+
+const updatePathMode = () => {
+    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
+    const set24Paths = (is24PathMode) => {
+        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
+            if(is24PathMode)
+                return light.classList.remove('disabled');
+            if((i + 2) % 3)
+                light.classList.add('disabled');
+        });
+    } 
+    set24Paths(pathMode === 24);
+};
+
+const updateParticipantIdAndConfig = () => {
+    let presetConfig = getPresetConfigByName(document.getElementById('presetSelect').value);
+    let partId = document.getElementById("participantIdInput").value;
+
+    if(!presetConfig)
+        presetConfig = INIT_PRESET;
+
+    printLog(`using preset: ${presetConfig.name}`);
+
+    const { config } = presetConfig;
+    const presetId = presetConfig.id;
+
+    updateNBackSteps(config.nback);
+    updateNBackType(config.nbackType);
+    partId += `_${presetId}_${config.type}_n${config.nback}_t${config.nbackType}`;
+
+    socket.send(JSON.stringify({
+        path: '/participantId',
+        body: partId
+    }));
+}
+
+/**
+ * generates the next 2 segments of the path relativ to the current node
+ * @returns 
+ */
+const handlePartialPathGeneration = () => {
+    currentNode = currentNode === -1 ? 0 : currentNode;
+    let nextNode = getRandomNodeNeighbour(currentNode, previousNode);
+    const path = calcRandomPath(pathMode === 8, [currentNode, nextNode]);
+    if(!currentPath) currentPath = [];
+    if(currentPath.length >= 2)
+        currentPath.shift();
+    currentPath.push(path[0]);
+    previousNode = currentNode;
+    currentNode = nextNode;
+    if(currentPath.length < 2) {
+        handlePartialPathGeneration();
+        return;
+    }
+    updateDisplayByPath(currentPath);
+    sendPath(currentPath);
+}
 
 /**
  * receives the mouse coordinates to emulate the tracker data
@@ -404,6 +563,7 @@ const printLog = (message) => {
  * @returns 
  */
 const handleTrackerData = (data, skipConversion) => {
+    const editMode = document.getElementById('calibrationDataDisplay').style.display === 'none';
     if(!allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
@@ -415,7 +575,13 @@ const handleTrackerData = (data, skipConversion) => {
     if(skipConversion) {
         coords = {x, y};
     } else {
-        coords = convertTrackerDataToCanvasCoordinates(parseFloat(x), parseFloat(z), CANVAS_SIZE, CANVAS_MARGIN);
+        coords = convertTrackerDataToCanvasCoordinates(
+            parseFloat(x),
+            parseFloat(z),
+            CANVAS_SIZE,
+            CANVAS_MARGIN,
+            (editMode ? newCalibrationData : undefined)
+        );
     }
     
     if(!coords) {
@@ -423,45 +589,27 @@ const handleTrackerData = (data, skipConversion) => {
         return;
     }
     const nodesInRange = getCurrentNodeInRange(coords.x, coords.y);
+    if(currentNode === -1 && nodesInRange === 0 && useTrackingForLights)
+        currentNode = 0;
     trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords, nodesInRange}, null, 2);
     activateSVGNodes([nodesInRange]);
     updatePathWithTracking(nodesInRange);
     updateCanvas([coords]);
+    // so outlines wont be overdrawn
+    if(editMode) {
+        updateCanvasWithCalibrationData(newCalibrationData, true);
+    }
 }
 
 /**
  * if the given node is in range of the current node
- * the next part of the path will be activated
+ * the next part of the path will be generated
  * @param {number} nodeInRange 
  * @returns 
  */
 const updatePathWithTracking = (nodeInRange) => {
-    if(!currentNodes || !currentPath) return;
-    const currentNode = currentNodes[0];
-    if(nodeInRange === currentNode) {
-        currentNodes.shift();
-        // generates a new path if the current path is finished
-        if(currentNodes.length === 0) {
-            setReversingPath(!reversingPath);
-            currentNodes = calcRandomNodes();
-            currentPath = calcRandomPath(pathMode === 8, currentNodes);
-            currentNodes = reversingPath ? currentNodes.reverse() : currentNodes;
-            if(!currentNodes.includes(currentNode))
-                currentNodes.unshift(currentNode);
-            updateDisplayByPath([]);
-            activePaths = null;
-        }
-        if(!activePaths)
-            activePaths = [];
-        const nextPath = getNextPath(
-            getUpComingPath(activePaths, currentPath),
-            currentNode,
-            reversingPath
-        );
-        if(!activePaths.includes(nextPath))
-            activePaths.push(nextPath);
-        updateDisplayByPath(currentPath, activePaths);
-        sendPath([activePaths.at(-1)]);
+    if([previousNode, currentNode].includes(nodeInRange)) {
+        handlePartialPathGeneration();
     }
 };
 
@@ -634,10 +782,11 @@ const setTrackerStatusDisplay = (connected) => {
  * draws the given points on the canvas
  * @param {{x: number, y:number}[]} data 
  */
-const updateCanvas = (data) => {
+const updateCanvas = (data, keepCanvas) => {
     const canvas = document.getElementById('trackerMap');
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(!keepCanvas)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
     data.forEach((point) => {
         ctx.beginPath();
         ctx.strokeStyle = 'green';
@@ -645,6 +794,21 @@ const updateCanvas = (data) => {
         ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
         ctx.stroke();
     });
+}
+
+const drawLines = (data, keepCanvas) => {
+    const canvas = document.getElementById('trackerMap');
+    const ctx = canvas.getContext('2d');
+    if(!keepCanvas)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 2;
+    ctx.moveTo(data[0].x, data[0].y);
+    data.forEach((point) => {
+        ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
 }
 
 /**
@@ -696,6 +860,187 @@ const startTimer = (finnishText = "done") => {
     });
 }
 
+/**
+ * 
+ * @returns {boolean} true if the calibration data edit view is active
+ */
+const toggleCalibrationDataEditView = (skipSave) => {
+    const display = document.getElementById('calibrationDataDisplay');
+    const edit = document.getElementById('calibrationDataEdit');
+    const editBtn = document.getElementById('editCalibrationdata');
+    const resetBtn = document.getElementById('resetCalibrationdata');
+    const manualEdit = document.getElementById('manualTrackerCalibrationDisplay');
+
+    const setToEdit = edit.style.display === 'none';
+    setCanvasToEditView(setToEdit);
+    if(setToEdit) {
+        display.style.display = 'none';
+        const data = newCalibrationData;
+        edit.value = data ? JSON.stringify(data, null, 2) : '';
+        edit.style.display = 'block';
+        editBtn.innerHTML = 'Save';
+        resetBtn.innerHTML = 'Cancel'; 
+        manualEdit.style.display = 'flex';   
+        return setToEdit;
+    }
+    editBtn.innerHTML = 'Edit';
+    resetBtn.innerHTML = 'Reset';
+    display.style.display = 'block';
+    edit.style.display = 'none';
+    manualEdit.style.display = 'none';
+    try {
+        if(!skipSave)
+            saveCalibrationData(JSON.parse(edit.value));
+        syncCalibrationDataDisplay();
+    } catch (e) {
+        printLog('could not parse calibration data');
+        console.error(e);
+    }
+    return setToEdit;
+};
+
+/**
+ * 
+ * @param {{minY: number, maxY: number, minX: number, maxX: number}} update
+ */
+const updateNewCalibrationData = (update) => {
+    newCalibrationData = {...newCalibrationData, ...update};
+    const edit = document.getElementById('calibrationDataEdit');
+    edit.value = JSON.stringify(newCalibrationData, null, 2);
+    updateCanvasWithCalibrationData(newCalibrationData);
+};
+
+/**
+ * is true the scroll event will be used to change the calibration data
+ * as well as a preview of the calibration data on the canvas is shown
+ * @param {boolean} isEditView 
+ */
+const setCanvasToEditView = (isEditView) => {
+    const canvas = document.getElementById('trackerMap');
+
+    const handleScroll = (e) => {
+        const scrollingDown = e.deltaY > 0;
+        const ishift = e.shiftKey;
+        const isctrl = e.ctrlKey;
+        if(isctrl)
+            e.preventDefault();
+        const value = 0.01 * (scrollingDown ? -1 : 1) * (isctrl ? 0.1 : 1);
+
+        if(ishift) {
+            newCalibrationData.maxY += value;
+            newCalibrationData.minY += value;
+        } else {
+            newCalibrationData.maxX += value;
+            newCalibrationData.minX += value;
+        }
+        updateNewCalibrationData({...newCalibrationData});
+    };
+
+    if(isEditView) {
+        canvas.style.pointerEvents = 'auto';
+        canvas.addEventListener('wheel', handleScroll);
+        updateCanvasWithCalibrationData(newCalibrationData);
+    } else {
+        canvas.style.pointerEvents = 'none';
+        canvas.removeEventListener('wheel', handleScroll);
+        updateCanvas([]);
+    }
+};
+
+/**
+ * 
+ * @param {{minY: number, maxY: number, minX: number, maxX: number}} data
+ * @returns 
+ */
+const updateCanvasWithCalibrationData = (points, keepCanvas) => {
+    if(!points) return;
+    const xRange = points.maxX - points.minX;
+    const yRange = points.maxY - points.minY;
+    if(!keepCanvas)
+        updateCanvas([]);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+    drawLines([
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+    ], true);
+};
+
+const initPresetSelection = () => {
+    const presetSelection = document.getElementById('presetSelect');
+    let presetOptions = [];
+    presetOptions.push(`<option value="none">None</option>`);
+    presetOptions = [...presetOptions,  ...PRESETS.map((preset) => 
+        `<option value="${preset.name}">${preset.name}</option>`
+    )];
+    presetSelection.innerHTML = presetOptions.join('');
+}
+
+const initNbackTypeSelect = () => {
+    const nbackTypeSelect = document.getElementById('nbackTypeSelect');
+    const nbackTypeOptions = Object.values(NBACK_TYPES).map((type) => 
+        `<option value="${type}">${type}</option>`
+    );
+    nbackTypeSelect.innerHTML = nbackTypeOptions.join('');
+}
+
+const startTaskTimer = (next) => {
+    const timer = document.getElementById('taskTimer');
+    timer.style.display = 'block';
+    let durationInSeconds = TASK_DURATION;
+    const updateTimer = () => {
+        if(durationInSeconds >= 0)
+            timer.innerText = `${Math.floor(durationInSeconds / 60)}:${String(durationInSeconds % 60).padStart(2, '0')}`;
+        durationInSeconds--;
+        if(durationInSeconds === -1) {
+            timer.innerText = "0:00";
+            timer.style.display = 'none';
+            clearInterval(taskTimer);
+            next?.();
+        }
+    };
+    updateTimer();
+    taskTimer = setInterval(updateTimer, 1000);
+};
+
+const stopTaskTimer = () => {
+    clearInterval(taskTimer);
+    const timer = document.getElementById('taskTimer');
+    timer.innerText = "0:00";
+    timer.style.display = 'none';
+};
+
 // init
 syncCalibrationDataDisplay();
 setConnectionStatusDisplay(false);
+initPresetSelection();
+initNbackTypeSelect();
+updatePathMode();
+
+document.getElementById('participantIdInput').value = INIT_CONFIG.participantId;
+updateParticipantIdAndConfig();

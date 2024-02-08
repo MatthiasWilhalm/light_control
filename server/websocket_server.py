@@ -15,6 +15,8 @@ class WebSocketServer(threading.Thread):
         self.storage = storage
         self.loop = None
         self.active_connections = {}
+        self.packageTracker = 0 # only evety 6th package is send to the nback client
+        self.disableLogging = True
         
     # handles incoming messages from the websockets
     async def _msg_received(self, websocket, ws_path):
@@ -72,12 +74,13 @@ class WebSocketServer(threading.Thread):
                 elif path == '/participantId':
                     await self.log("Setting participant ID to " + str(body), True)
                     self.storage.set_participant_id(body)
-                    self.nback_logger.set_filename(body + '.csv')
-                    self.light_logger.set_filename(body + '.csv')
+                    self.nback_logger.set_filename(body + '.csv', "timestamp,lastColor,nbackColor,trashColor,isCorrect,nbackCount")
+                    self.light_logger.set_filename(body + '.csv', "timestamp,lightState")
                     await self.broadcast_except_web_client(message)
 
                 # sends the participant ID to the the client that requested it
                 elif path == '/participantIdRequest':
+                    await websocket.send(json.dumps({'path': '/disableLogging', 'body': self.disableLogging}))
                     await websocket.send(json.dumps({'path': '/participantId', 'body': self.storage.get_participant_id()}))
                     await self.log("Sending participant ID ("+self.storage.get_participant_id()+") to " + str(connection_id), True)
 
@@ -93,18 +96,33 @@ class WebSocketServer(threading.Thread):
                         await self.log("disable Logging", body)
                     else:
                         await self.log("enable Logging", body)
+                    self.disableLogging = body
                     self.nback_logger.set_pause_logging(body)
                     self.light_logger.set_pause_logging(body)
                     await self.broadcast_except_web_client(message)
 
                 # sends all the messages with the path '/log' or '/trackerdata' to the web-client
-                elif path == '/log' or path == '/trackerdata':
+                elif path == '/log':
                     await self.send('web-client', json.dumps({'path': path, 'body': body}))
+
+                elif path == '/trackerdata':
+                    await self.send('web-client', json.dumps({'path': path, 'body': body}))
+                    
+                    # if we want that the nback client also gets the tracker data
+                    if(self.packageTracker == 3):
+                        await self.send('nback', json.dumps({'path': path, 'body': body}))
+                        self.packageTracker = 0
+                    else:
+                        self.packageTracker += 1
 
                 # all messages with the path '/nbackLog' are sent to the nback logger
                 elif path == '/nbackLog':
                     print(body)
-                    self.nback_logger.log(body, True)
+                    self.nback_logger.log(body)
+                    
+                elif path == '/calibratetorso':
+                    print("Calibrating torso")
+                    await self.send('nback', json.dumps({'path': path, 'body': body}))
 
                 else:
                     print("Unknown path: " + path)
@@ -119,12 +137,19 @@ class WebSocketServer(threading.Thread):
     async def broadcast_except_web_client(self, message):
         if self.active_connections:
             await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'web-client'))
+    
+    async def broadcast_except_tracker(self, message):
+        if self.active_connections:
+            await asyncio.gather(*(ws.send(message) for ws in self.active_connections.values() if id(ws) != 'tracker'))
             
     async def send(self, connection_id, message):
-        if connection_id in self.active_connections:
-            await self.active_connections[connection_id].send(message)
-        else:
-            print("Connection " + str(connection_id) + " not found")
+        try:
+            if connection_id in self.active_connections:
+                await self.active_connections[connection_id].send(message)
+            else:
+                print("Connection " + str(connection_id) + " not found")
+        except Exception as e:
+            print("Failed to send message to " + str(connection_id) + ": " + str(e))
             
     async def log(self, message, use_timestamp = False):
         self.operation_logger.log(message, use_timestamp)
