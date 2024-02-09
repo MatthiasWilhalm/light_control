@@ -93,6 +93,8 @@ const InitState = {
     allowTracking: true,
     reverseOutput: false,
     calibrationEditVew: false,
+    calibrateTorsoView: false,
+    torsoCalibrationValue: 0
 }
 
 const State = { ...InitState };
@@ -304,10 +306,31 @@ const InputElements = {
     calibrateTorso: {
         eventType: 'click',
         event: (e) => {
+            updateState('calibrateTorsoView', !State.calibrateTorsoView);
+        }
+    },
+    // not recommended to use
+    autoCalibrateTorso: {
+        eventType: 'click',
+        event: (e) => {
             sendMsg(JSON.stringify({
                 path: '/calibratetorso',
                 body: ''
             }));
+        }
+    },
+    manualCalibrateTorso: {
+        eventType: 'wheel',
+        event: (e) => {
+            const scrollingDown = e.deltaY > 0;
+            const isshift = e.shiftKey;
+            updateState('torsoCalibrationValue', State.torsoCalibrationValue + (scrollingDown ? -1 : 1) * (isshift ? 1 : 5));
+            e.target.innerText = State.torsoCalibrationValue === 0 ? 'Manual Calibration' : State.torsoCalibrationValue+"°";
+            sendMsg(JSON.stringify({
+                path: '/calibratetorso',
+                body: State.torsoCalibrationValue
+            }));
+
         }
     },
     toggleTracking: {
@@ -586,6 +609,15 @@ const initUpdateListener = () => {
     setStateUpdateListener('reverseOutput', (value) => {
         const reverseOutput = document.getElementById('reverseOutput');
         reverseOutput.classList.toggle('button-selected', value);
+    });
+
+    setStateUpdateListener('calibrateTorsoView', (value) => {
+        const calibrateTorso = document.getElementById('calibrateTorso');
+        const extendedTorsoCalobration = document.getElementById('extendedTorsoCalobration');
+
+        calibrateTorso.classList.toggle('button-selected', value);
+        extendedTorsoCalobration.style.display = value ? 'block' : 'none';
+        
     });
 };
         
