@@ -92,6 +92,7 @@ const InitState = {
     currentTrackerValues: {},
     allowTracking: true,
     reverseOutput: false,
+    calibrationEditVew: false,
 }
 
 const State = { ...InitState };
@@ -345,11 +346,23 @@ const InputElements = {
             syncCalibrationDataDisplay();
         }
     },
-    editCalibrationdata: {
+    calibrationDataEdit: {
         eventType: 'change',
         event: (e) => {
-            //TODO: move to state
-            updateState('newCalibrationData', getCalibrationData());
+            try {
+                const data = JSON.parse(e.target.value);
+                updateState('newCalibrationData', data);
+                updateCanvasWithCalibrationData(data);
+            } catch (error) {
+                console.error('error parsing calibration data', error);
+            }
+        }
+    },
+    editCalibrationdata: {
+        eventType: 'click',
+        event: (e) => {
+            if(!State.calibrationEditVew)
+                updateState('newCalibrationData', getCalibrationData());
             toggleCalibrationDataEditView();
         }
     },
@@ -1027,9 +1040,10 @@ const toggleCalibrationDataEditView = (skipSave) => {
     const resetBtn = document.getElementById('resetCalibrationdata');
     const manualEdit = document.getElementById('manualTrackerCalibrationDisplay');
 
-    const setToEdit = edit.style.display === 'none';
-    setCanvasToEditView(setToEdit);
-    if(setToEdit) {
+    updateState('calibrationEditVew', !State.calibrationEditVew);
+
+    setCanvasToEditView(State.calibrationEditVew);
+    if(State.calibrationEditVew) {
         display.style.display = 'none';
         const data = State.newCalibrationData;
         edit.value = data ? JSON.stringify(data, null, 2) : '';
@@ -1037,22 +1051,22 @@ const toggleCalibrationDataEditView = (skipSave) => {
         editBtn.innerHTML = 'Save';
         resetBtn.innerHTML = 'Cancel'; 
         manualEdit.style.display = 'flex';   
-        return setToEdit;
+    } else {
+        editBtn.innerHTML = 'Edit';
+        resetBtn.innerHTML = 'Reset';
+        display.style.display = 'block';
+        edit.style.display = 'none';
+        manualEdit.style.display = 'none';
+        try {
+            if(!skipSave)
+                saveCalibrationData(State.newCalibrationData);
+                // saveCalibrationData(JSON.parse(edit.value));
+            syncCalibrationDataDisplay();
+        } catch (e) {
+            printLog('could not parse calibration data');
+            console.error(e);
+        }
     }
-    editBtn.innerHTML = 'Edit';
-    resetBtn.innerHTML = 'Reset';
-    display.style.display = 'block';
-    edit.style.display = 'none';
-    manualEdit.style.display = 'none';
-    try {
-        if(!skipSave)
-            saveCalibrationData(JSON.parse(edit.value));
-        syncCalibrationDataDisplay();
-    } catch (e) {
-        printLog('could not parse calibration data');
-        console.error(e);
-    }
-    return setToEdit;
 };
 
 /**
@@ -1088,7 +1102,7 @@ const setCanvasToEditView = (isEditView) => {
             updatedCalibrationData.maxX += value;
             updatedCalibrationData.minX += value;
         }
-        updatedCalibrationData({...updatedCalibrationData});
+        updateNewCalibrationData({...updatedCalibrationData});
     };
 
     if(isEditView) {
