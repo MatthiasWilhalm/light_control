@@ -9,33 +9,12 @@ const socket = new WebSocket(URL);
 const CANVAS_SIZE = 930;
 const CANVAS_MARGIN = 30;
 
-const TASK_DURATION = 60 * 2; // 2 minutes in seconds
-// const TASK_DURATION = 30;
-
-
-var mainTrackerName = '';
-const currentTrackerValues = {};
-
-// change default pathMode here
-var pathMode = INIT_CONFIG.pathMode;
-
-var allowTracking = true;
-var useTrackingForLights = false;
-
-var isTrackingEmulationActive = false;
+// const TASK_DURATION = 60 * 2; // 2 minutes in seconds
+const TASK_DURATION = 30;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
-
-// is used if useTrackingForLights is true
-// is used for partial path generation
-var currentNode = -1;
-var previousNode = -1;
-var currentPath = null; 
-
-var newCalibrationData = null;
-
-var taskTimer = null;
+var logCounter = 0;
 
 
 // Connection opened
@@ -72,7 +51,7 @@ socket.addEventListener('message', (event) => {
             printLog(message.body);
             break;
         case '/trackerdata':
-            if(isTrackingEmulationActive) break;
+            if(State.isTrackingEmulationActive) break;
             handleTrackerData(message.body);
             break;
         case '/participantId':
@@ -92,6 +71,512 @@ socket.addEventListener('message', (event) => {
     }    
 });
 
+const sendMsg = (data) => {
+    try {
+        socket.send(data);
+    } catch (error) {
+        console.error('error sending message');
+    }
+}
+
+const InitState = {
+    pathMode: 24,
+    useTrackingForLights: false,
+    isTrackingEmulationActive: false,
+    currentNode: -1,
+    previousNode: -1,
+    currentPath: null,
+    newCalibrationData: null,
+    taskTimer: null,
+    mainTrackerName: '',
+    currentTrackerValues: {},
+    allowTracking: true,
+    reverseOutput: false,
+}
+
+const State = { ...InitState };
+
+const StateUpdateFunctions = {};
+
+/**
+ * Updates a value in the state and calls the update function if it exists
+ * @param {string} key 
+ * @param {*} value 
+ */
+const updateState = (key, value) => {
+    State[key] = value;
+    if(StateUpdateFunctions[key])
+        StateUpdateFunctions[key](value);
+};
+
+const resetState = (key) => {
+    updateState(key, InitState[key]);
+};
+
+const setStateUpdateListener = (key, fun) => {
+    StateUpdateFunctions[key] = fun;
+};
+
+const InputElements = {
+    toggleStudyView: {
+        eventType: 'click',
+        event: (e) => {
+            document.getElementById('toggleStudyView').classList.toggle('button-selected');
+            const hide = document.getElementById('toggleStudyView').classList.contains('button-selected');
+        
+            Array.from(document.getElementsByClassName('non-essential')).forEach((elem) =>
+                hide ? elem.classList.add('hidden') : elem.classList.remove('hidden')
+            );
+        }
+    },
+    participantIdInput: {
+        eventType: 'change',
+        event: (e) => {}
+    },
+    presetSelect: {
+        eventType: 'change',
+        event: (e) => {
+            console.log('presetSelect change');
+            updateParticipantIdAndConfig();
+        }
+    },
+    updateId: {
+        eventType: 'click',
+        event: (e) => {
+            updateParticipantIdAndConfig();
+        }
+    },
+    forceSaveLogs: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/saveLogs',
+                body: ''
+            }));
+        }
+    },
+    disableLogging: {
+        eventType: 'click',
+        event: (e) => {
+            toggleLogging();
+        }
+    },
+    presetSelect: {
+        eventType: 'change',
+        event: (e) => {
+            updateParticipantIdAndConfig();
+        }
+    },
+    startTaskRound: {
+        eventType: 'click',
+        event: (e) => {
+            const button = document.getElementById("startTaskRound");
+            if(State.taskTimer) { // timer is running
+                stopTaskTimer();
+                toggleLogging(false);
+                button.innerText = "Start Task";
+                sendMsg(JSON.stringify({
+                    path: '/nback',
+                    body: 'stopTask'
+                }));
+                updateState('useTrackingForLights', false);
+                return;
+            }
+            updateParticipantIdAndConfig();
+            toggleLogging(true);
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'startTask'
+            }));
+            updateState('useTrackingForLights', true);
+            
+            button.innerText = "Stop Task";
+            startTaskTimer(() => {
+                button.innerText = "Start Task";
+                toggleLogging(false);
+                sendMsg(JSON.stringify({
+                    path: '/nback',
+                    body: 'stopTask'
+                }));
+                updateState('useTrackingForLights', false);
+            });
+        }
+    },
+    reset: {
+        eventType: 'click',
+        event: (e) => {
+            updateDisplayByPath([]);
+            sendPath([]);
+        }
+    },
+    random: {
+        eventType: 'click',
+        event: (e) => {
+            sendRandomPath();
+        }
+    },
+    all_on: {
+        eventType: 'click',
+        event: (e) => {
+            const path = new Array(24).fill(0).map((_, i) => i);
+            updateDisplayByPath(path);
+            sendPath(path);
+        }
+    },
+    pathType: {
+        eventType: 'click',
+        event: (e) => {
+            updateState('pathMode', State.pathMode === 24 ? 8 : 24);
+            // pathMode = pathMode === 24 ? 8 : 24;
+            // updatePathMode();
+        }
+    },
+    reverseOutput: {
+        eventType: 'click',
+        event: (e) => {
+            updateState('reverseOutput', !State.reverseOutput);
+        }
+    },
+    useTrackingForLights: {
+        eventType: 'click',
+        event: (e) => {
+            updateState('useTrackingForLights', !State.useTrackingForLights);
+        }
+    },
+    startTask: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'startTask'
+            }));
+        }
+    },
+    startBaseline: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'startBaseline'
+            }));
+        }
+    },
+    stopTask: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'stopTask'
+            }));
+        }
+    },
+    triggerLeft: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'triggerLeft'
+            }));
+        }
+    },
+    triggerRight: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/nback',
+                body: 'triggerRight'
+            }));
+        }
+    },
+    updateSteps: {
+        eventType: 'click',
+        event: (e) => {
+            updateNBackSteps(document.getElementById('nbackSteps').value);
+        }
+    },
+    nbackTypeSelect: {
+        eventType: 'change',
+        event: (e) => {
+            updateNBackType(document.getElementById('nbackTypeSelect').value);
+        }
+    },
+    calibrateTorso: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/calibratetorso',
+                body: ''
+            }));
+        }
+    },
+    toggleTracking: {
+        eventType: 'click',
+        event: (e) => {
+            updateState('allowTracking', !State.allowTracking);
+        }
+    },
+    startCalibration: {
+        eventType: 'click',
+        event: async () => {
+            if(!State.mainTrackerName || !State.currentTrackerValues) {
+                alert('no tracker data available');
+                return;
+            }
+        
+            if(getCalibrationData()) {
+                alert('calibration data already exists, please reset it first');
+                return;
+            }
+        
+            await startTimer("calibrating");
+            const val1 = parseFloat(State.currentTrackerValues[State.mainTrackerName].x);
+            await startTimer("calibrating");
+            const val2 = parseFloat(State.currentTrackerValues[State.mainTrackerName].x);
+            await startTimer("calibrating");
+            const val3 = parseFloat(State.currentTrackerValues[State.mainTrackerName].z);
+            await startTimer("calibrating");
+            const val4 = parseFloat(State.currentTrackerValues[State.mainTrackerName].z);
+        
+            const maxX = Math.max(val1, val2);
+            const minX = Math.min(val1, val2);
+            const maxY = Math.max(val3, val4);
+            const minY = Math.min(val3, val4);
+            saveCalibrationData({maxX, minY, maxY, minX, rotation: 0, flipX: false, flipY: false});
+            syncCalibrationDataDisplay();
+        }
+    },
+    editCalibrationdata: {
+        eventType: 'change',
+        event: (e) => {
+            //TODO: move to state
+            updateState('newCalibrationData', getCalibrationData());
+            toggleCalibrationDataEditView();
+        }
+    },
+    flipX: {
+        eventType: 'click',
+        event: (e) => {
+            const data = getCalibrationData();
+            if(!data) return;
+            saveCalibrationData({...data, flipX: !data.flipX});
+            syncCalibrationDataDisplay();
+        }
+    },
+    flipY: {
+        eventType: 'click',
+        event: (e) => {
+            const data = getCalibrationData();
+            if(!data) return;
+            saveCalibrationData({...data, flipY: !data.flipY});
+            syncCalibrationDataDisplay();
+        }
+    },
+    rotateCalibraion: {
+        eventType: 'click',
+        event: (e) => {
+            const data = getCalibrationData();
+            if(!data) return;
+            let rotation = data.rotation || 0;
+            saveCalibrationData({...data, rotation: rotation + 90 % 360});
+            syncCalibrationDataDisplay();
+        }
+    },
+    resetCalibrationdata: {
+        eventType: 'click',
+        event: (e) => {
+                // if the edit view is active, it will be closed
+                if(document.getElementById('calibrationDataDisplay').style.display === 'none') {
+                    toggleCalibrationDataEditView(true);
+                    return;
+                }
+                // gives warning to user
+                if(!confirm('Are you sure you want to reset the calibration data?')) return;
+                saveCalibrationData(null);
+                syncCalibrationDataDisplay();
+        }
+    },
+    echo: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/echo',
+                body: 'echoing from web-client'
+            }));
+        }
+    },
+    addLog: {
+        eventType: 'click',
+        event: (e) => {
+            sendMsg(JSON.stringify({
+                path: '/log',
+                body: 'log entry ' + logCounter
+            }));
+            // printLog('log entry ' + logCounter);
+            logCounter++;
+        }
+    },
+    testCalibration: {
+        eventType: 'click',
+        event: (e) => {
+            if(getCalibrationData()) return;
+            saveCalibrationData({max: 4, min: -4});
+            const vals = [
+                convertTrackerDataToCanvasCoordinates(0, 8, 930, 30, 0.5),
+                convertTrackerDataToCanvasCoordinates(0, -8, 930, 30, 0.5),
+                convertTrackerDataToCanvasCoordinates(-4, 0, 930, 30, 0.5),
+                convertTrackerDataToCanvasCoordinates(4, 0, 930, 30, 0.5),
+                convertTrackerDataToCanvasCoordinates(0, 0, 930, 30, 0.5),
+            ]
+            vals.forEach((val, i) => console.log(`val${i}`, val));
+            updateCanvas(vals);
+        }
+    },
+    resetCanvas: {
+        eventType: 'click',
+        event: (e) => {
+            updateCanvas([]);
+        }
+    },
+    emulateTracking: {
+        eventType: 'click',
+        event: (e) => {
+            updateState('isTrackingEmulationActive', !State.isTrackingEmulationActive);
+        }
+    },
+    testPartialPath: {
+        eventType: 'click',
+        event: (e) => {
+            handlePartialPathGeneration();
+        }
+    },
+    toggleLog: {
+        eventType: 'click',
+        event: (e) => {
+            const log = document.getElementById('log');
+            log.style.display = log.style.display === 'none' ? 'block' : 'none';
+        }
+    },
+    trackerMinX: {
+        eventType: 'wheel',
+        event: (e) => {
+            manualUpdatetracking(e, 'minX');
+        }
+    },
+    trackerMaxX: {
+        eventType: 'wheel',
+        event: (e) => {
+            manualUpdatetracking(e, 'maxX');
+        }
+    },
+    trackerMinY: {
+        eventType: 'wheel',
+        event: (e) => {
+            manualUpdatetracking(e, 'minY');
+        }
+    },
+    trackerMaxY: {
+        eventType: 'wheel',
+        event: (e) => {
+            manualUpdatetracking(e, 'maxY');
+        }
+    },
+};
+
+const Init = () => {
+    initUpdateListener();
+
+    Object.keys(InputElements).forEach((key) => {
+        document.getElementById(key)?.addEventListener(InputElements[key].eventType, InputElements[key].event);
+    });
+
+    document.getElementById('participantIdInput').value = INIT_CONFIG.participantId;
+    updateParticipantIdAndConfig();
+    updateState('pathMode', INIT_CONFIG.pathMode);
+
+    syncCalibrationDataDisplay();
+    setConnectionStatusDisplay(false);
+    initPresetSelection();
+    initNbackTypeSelect();
+
+}
+
+const initUpdateListener = () => {
+    setStateUpdateListener('pathMode', (value) => {
+        document.getElementById('pathType').innerText = "Active Paths: " + value;
+        const set24Paths = (is24PathMode) => {
+            Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
+                if(is24PathMode)
+                    return light.classList.remove('disabled');
+                if((i + 2) % 3)
+                    light.classList.add('disabled');
+            });
+        } 
+        set24Paths(value === 24);
+    });
+
+    setStateUpdateListener('useTrackingForLights', (value) => {
+        const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
+        useTrackingForLightsElem.classList.toggle('button-selected', value);
+
+        document.getElementById('reset').disabled = value;
+        document.getElementById('all_on').disabled = value;
+        document.getElementById('random').disabled = value;
+        if(value) {
+            // asumes that the user starts at node 0
+            updateState('currentNode', 0);
+        } else {
+            updateState('currentNode', -1);
+            updateState('previousNode', -1);
+            updateState('currentPath', null);
+        }
+    });
+
+    setStateUpdateListener('isTrackingEmulationActive', (value) => {
+        const trackerMap = document.getElementById("trackerMap");
+        if(value) {
+            trackerMap.addEventListener("mousemove", emulateTrackerData);
+            document.getElementById('emulateTracking').classList.add('button-selected');
+            trackerMap.style.pointerEvents = 'auto';
+            return;
+        }
+        document.getElementById('emulateTracking').classList.remove('button-selected');
+        trackerMap.removeEventListener("mousemove", emulateTrackerData);
+        trackerMap.style.pointerEvents = 'none';
+        document.getElementById('trackerDebugData').innerText = '';
+        activateSVGNodes([]);
+        updateCanvas([]);
+
+    });
+
+    setStateUpdateListener('currentNode', (value) => {});
+
+    setStateUpdateListener('previousNode', (value) => {});
+
+    setStateUpdateListener('currentPath', (value) => {});
+
+    setStateUpdateListener('newCalibrationData', (value) => {
+        const edit = document.getElementById('calibrationDataEdit');
+        edit.value = JSON.stringify(value, null, 2);
+        updateCanvasWithCalibrationData(value);    
+    });
+
+    setStateUpdateListener('taskTimer', (value) => {});
+
+    setStateUpdateListener('mainTrackerName', (value) => {});
+
+    setStateUpdateListener('currentTrackerValues', (value) => {});
+
+    setStateUpdateListener('allowTracking', (value) => {
+        document.getElementById('toggleTracking').classList.toggle('button-selected', value);
+    });
+
+    setStateUpdateListener('reverseOutput', (value) => {
+        const reverseOutput = document.getElementById('reverseOutput');
+        reverseOutput.classList.toggle('button-selected', value);
+    });
+};
+        
+
 // adds event listeners to all paths in the lights-path-svg 
 Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     light.addEventListener('click', () => {
@@ -102,381 +587,46 @@ Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
     });
 });
 
-document.getElementById('toggleStudyView').addEventListener('click', () => {
-    document.getElementById('toggleStudyView').classList.toggle('button-selected');
-    const hide = document.getElementById('toggleStudyView').classList.contains('button-selected');
-
-    Array.from(document.getElementsByClassName('non-essential')).forEach((elem) =>
-        hide ? elem.classList.add('hidden') : elem.classList.remove('hidden')
-    );
-});
-
-//logging
-    
-document.getElementById("updateId").addEventListener("click", () => {
-    updateParticipantIdAndConfig();
-});
-// the idea behind this to force all loggers to store the logs to disk
-// in case they use a buffer
-document.getElementById("forceSaveLogs").addEventListener("click", () => {
-    socket.send(JSON.stringify({
-        path: '/saveLogs',
-        body: ''
-    }));
-});
-document.getElementById("disableLogging").addEventListener("click", () => {
-    toggleLogging();
-});
-document.getElementById("presetSelect").addEventListener("change", () => {
-    updateParticipantIdAndConfig();
-});
-
-document.getElementById("startTask").addEventListener("click", () => {
-    const button = document.getElementById("startTask");
-    if(taskTimer) { // timer is running
-        stopTaskTimer();
-        toggleLogging(false);
-        button.innerText = "Start Task";
-        socket.send(JSON.stringify({
-            path: '/nback',
-            body: 'stopTask'
-        }));
-        toggleUseTrackingForLights(false);
-        return;
-    }
-    updateParticipantIdAndConfig();
-    toggleLogging(true);
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'startTask'
-    }));
-    toggleUseTrackingForLights(true);
-    
-    button.innerText = "Stop Task";
-    startTaskTimer(() => {
-        button.innerText = "Start Task";
-        toggleLogging(false);
-        socket.send(JSON.stringify({
-            path: '/nback',
-            body: 'stopTask'
-        }));
-        toggleUseTrackingForLights(false);
-    });
-});
+// functions
 
 const toggleLogging = (force) => {
     const button = document.getElementById("disableLogging");
     button.classList.toggle('button-selected', force === undefined ? undefined : !force);
-    socket.send(JSON.stringify({
+    sendMsg(JSON.stringify({
         path: '/disableLogging',
         body: button.classList.contains('button-selected')
     }));
 };
 
-// lights
-
-document.getElementById('reset').addEventListener('click', () => {
-    updateDisplayByPath([]);
-    sendPath([]);
-});
-
-document.getElementById('random').addEventListener('click', () => {
-    sendRandomPath();
-});
-
-document.getElementById('all_on').addEventListener('click', () => {
-    const path = new Array(24).fill(0).map((_, i) => i);
-    updateDisplayByPath(path);
-    sendPath(path);
-});
-
-document.getElementById('pathType').addEventListener('click', () => {
-    pathMode = pathMode === 24 ? 8 : 24;
-    updatePathMode();
-});
-
-document.getElementById('reverseOutput').addEventListener('click', () => {
-    const reverseOutput = document.getElementById('reverseOutput');
-    reverseOutput.classList.toggle('button-selected');
-});
-
-document.getElementById('useTrackingForLights').addEventListener('click', () => {
-    toggleUseTrackingForLights();
-});
-
-const toggleUseTrackingForLights = (force) => {
-    const useTrackingForLightsElem = document.getElementById('useTrackingForLights');
-
-    useTrackingForLightsElem.classList.toggle('button-selected', force);
-    useTrackingForLights = useTrackingForLightsElem.classList.contains('button-selected');
-
-    document.getElementById('reset').disabled = useTrackingForLights;
-    document.getElementById('all_on').disabled = useTrackingForLights;
-    document.getElementById('random').disabled = useTrackingForLights;
-    if(useTrackingForLights) {
-        // asumes that the user starts at node 0
-        currentNode = 0;
-    } else {
-        currentPath = null;
-        currentNode = -1;
-        previousNode = -1;
-    }
-    // reset lights
-    // updateDisplayByPath([]);
-    // sendPath([]);
-};
-
-// nback
-
-document.getElementById('startTask').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'startTask'
-    }));
-});
-document.getElementById('startBaseline').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'startBaseline'
-    }));
-});
-document.getElementById('stopTask').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'stopTask'
-    }));
-});
-document.getElementById('triggerLeft').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'triggerLeft'
-    }));
-});
-document.getElementById('triggerRight').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'triggerRight'
-    }));
-});
-document.getElementById('updateSteps').addEventListener('click', () => {
-    updateNBackSteps(document.getElementById('nbackSteps').value);
-});
-document.getElementById('nbackTypeSelect').addEventListener('change', () => {
-    updateNBackType(document.getElementById('nbackTypeSelect').value);
-});
-document.getElementById('calibrateTorso').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/calibratetorso',
-        body: ''
-    }));    
-});
-
-// tracking
-
-document.getElementById('toggleTracking').addEventListener('click', () => {
-    allowTracking = !allowTracking;
-    if(allowTracking) {
-        document.getElementById('toggleTracking').classList.remove('button-selected');
-    } else {
-        document.getElementById('toggleTracking').classList.add('button-selected');
-    }
-});
-
-document.getElementById('startCalibration').addEventListener('click', async () => {
-    if(!mainTrackerName || !currentTrackerValues) {
-        alert('no tracker data available');
-        return;
-    }
-
-    if(getCalibrationData()) {
-        alert('calibration data already exists, please reset it first');
-        return;
-    }
-
-    await startTimer("calibrating");
-    const val1 = parseFloat(currentTrackerValues[mainTrackerName].x);
-    await startTimer("calibrating");
-    const val2 = parseFloat(currentTrackerValues[mainTrackerName].x);
-    await startTimer("calibrating");
-    const val3 = parseFloat(currentTrackerValues[mainTrackerName].z);
-    await startTimer("calibrating");
-    const val4 = parseFloat(currentTrackerValues[mainTrackerName].z);
-
-    const maxX = Math.max(val1, val2);
-    const minX = Math.min(val1, val2);
-    const maxY = Math.max(val3, val4);
-    const minY = Math.min(val3, val4);
-    saveCalibrationData({maxX, minY, maxY, minX, rotation: 0, flipX: false, flipY: false});
-    syncCalibrationDataDisplay();
-});
-
-document.getElementById("flipX").addEventListener("click", () => {
-    const data = getCalibrationData();
-    if(!data) return;
-    saveCalibrationData({...data, flipX: !data.flipX});
-    syncCalibrationDataDisplay();
-});
-document.getElementById("flipY").addEventListener("click", () => {
-    const data = getCalibrationData();
-    if(!data) return;
-    saveCalibrationData({...data, flipY: !data.flipY});
-    syncCalibrationDataDisplay();
-});
-document.getElementById("rotateCalibraion").addEventListener("click", () => {
-    const data = getCalibrationData();
-    if(!data) return;
-    let rotation = data.rotation || 0;
-    saveCalibrationData({...data, rotation: rotation + 90 % 360});
-    syncCalibrationDataDisplay();
-});
-
-document.getElementById('editCalibrationdata').addEventListener('click', () => {
-    newCalibrationData = getCalibrationData();
-    toggleCalibrationDataEditView();
-});
-
-document.getElementById("trackerMinX").addEventListener("wheel", (e) => {
-    manualUpdatetracking(e, 'minX');
-});
-document.getElementById("trackerMaxX").addEventListener("wheel", (e) => {
-    manualUpdatetracking(e, 'maxX');
-});
-document.getElementById("trackerMinY").addEventListener("wheel", (e) => {
-    manualUpdatetracking(e, 'minY');
-});
-document.getElementById("trackerMaxY").addEventListener("wheel", (e) => {
-    manualUpdatetracking(e, 'maxY');
-});
-
 const manualUpdatetracking = (e, key) => {
     console.log("scoll");
-    if(!newCalibrationData) return;
+    if(!State.newCalibrationData) return;
     const scrollingDown = e.deltaY > 0;
     const isctrl = e.ctrlKey;
     const isshift = e.shiftKey;
-    const value = newCalibrationData[key] + (scrollingDown ? -1 : 1) * (isctrl ? 0.01 : 0.1) * (isshift ? 0.1 : 1);
+    const value = State.newCalibrationData[key] + (scrollingDown ? -1 : 1) * (isctrl ? 0.01 : 0.1) * (isshift ? 0.1 : 1);
     updateNewCalibrationData({[key]: value});
 };
 
-document.getElementById('resetCalibrationdata').addEventListener('click', () => {
-    // if the edit view is active, it will be closed
-    if(document.getElementById('calibrationDataDisplay').style.display === 'none') {
-        toggleCalibrationDataEditView(true);
-        return;
-    }
-    // gives warning to user
-    if(!confirm('Are you sure you want to reset the calibration data?')) return;
-    saveCalibrationData(null);
-    syncCalibrationDataDisplay();
-});
-
-document.getElementById('calibrationDataEdit').addEventListener('change', (e) => {
-    updateNewCalibrationData(JSON.parse(e.target.value));
-});
-
-// debug
-
-document.getElementById('echo').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/echo',
-        body: 'echoing from web-client'
-    }));
-});
-
-var logCounter = 0;
-
-document.getElementById('addLog').addEventListener('click', () => {
-    socket.send(JSON.stringify({
-        path: '/log',
-        body: 'log entry ' + logCounter
-    }));
-    // printLog('log entry ' + logCounter);
-    logCounter++;
-});
-
-document.getElementById('testCalibration').addEventListener('click', () => {
-    if(getCalibrationData()) return;
-    saveCalibrationData({max: 4, min: -4});
-    const vals = [
-        convertTrackerDataToCanvasCoordinates(0, 8, 930, 30, 0.5),
-        convertTrackerDataToCanvasCoordinates(0, -8, 930, 30, 0.5),
-        convertTrackerDataToCanvasCoordinates(-4, 0, 930, 30, 0.5),
-        convertTrackerDataToCanvasCoordinates(4, 0, 930, 30, 0.5),
-        convertTrackerDataToCanvasCoordinates(0, 0, 930, 30, 0.5),
-    ]
-    vals.forEach((val, i) => console.log(`val${i}`, val));
-    updateCanvas(vals);
-});
-
-document.getElementById('resetCanvas').addEventListener('click', () => {
-    updateCanvas([]);
-});
-
-
-document.getElementById('emulateTracking').addEventListener('click', () => {
-    const trackerMap = document.getElementById("trackerMap");
-
-    if(isTrackingEmulationActive) {
-        isTrackingEmulationActive = false;
-        document.getElementById('emulateTracking').classList.remove('button-selected');
-        trackerMap.removeEventListener("mousemove", emulateTrackerData);
-        trackerMap.style.pointerEvents = 'none';
-        document.getElementById('trackerDebugData').innerText = '';
-        activateSVGNodes([]);
-        updateCanvas([]);
-        return;
-    }
-    isTrackingEmulationActive = true;
-    trackerMap.addEventListener("mousemove", emulateTrackerData);
-    document.getElementById('emulateTracking').classList.add('button-selected');
-    trackerMap.style.pointerEvents = 'auto';
-});
-
-document.getElementById('testPartialPath').addEventListener('click', () => {
-    handlePartialPathGeneration();
-});
-
-// other
-
-document.getElementById('toggleLog').addEventListener('click', () => {
-    const log = document.getElementById('log');
-    log.style.display = log.style.display === 'none' ? 'block' : 'none';
-});
-
-
-
-
-
-// functions
-
 const updateNBackSteps = (steps) => {
     document.getElementById('nbackSteps').value = steps;
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'nbackSteps:'+steps
-    }));
+    try {
+        sendMsg(JSON.stringify({
+            path: '/nback',
+            body: 'nbackSteps:'+steps
+        }));
+    } catch (error) {}
 };
 
 const updateNBackType = (type) => {
     document.getElementById('nbackTypeSelect').value = type;
-    socket.send(JSON.stringify({
-        path: '/nback',
-        body: 'nbackType:'+type
-    }));
+    try {
+        sendMsg(JSON.stringify({
+            path: '/nback',
+            body: 'nbackType:'+type
+        }));
+    } catch (error) {}
 }
-
-const updatePathMode = () => {
-    document.getElementById('pathType').innerText = "Active Paths: " + pathMode;
-    const set24Paths = (is24PathMode) => {
-        Array.from(document.getElementsByTagName('path')).forEach((light, i) => {
-            if(is24PathMode)
-                return light.classList.remove('disabled');
-            if((i + 2) % 3)
-                light.classList.add('disabled');
-        });
-    } 
-    set24Paths(pathMode === 24);
-};
 
 const updateParticipantIdAndConfig = () => {
     let presetConfig = getPresetConfigByName(document.getElementById('presetSelect').value);
@@ -494,7 +644,7 @@ const updateParticipantIdAndConfig = () => {
     updateNBackType(config.nbackType);
     partId += `_${presetId}_${config.type}_n${config.nback}_t${config.nbackType}`;
 
-    socket.send(JSON.stringify({
+    sendMsg(JSON.stringify({
         path: '/participantId',
         body: partId
     }));
@@ -505,21 +655,27 @@ const updateParticipantIdAndConfig = () => {
  * @returns 
  */
 const handlePartialPathGeneration = () => {
-    currentNode = currentNode === -1 ? 0 : currentNode;
-    let nextNode = getRandomNodeNeighbour(currentNode, previousNode);
-    const path = calcRandomPath(pathMode === 8, [currentNode, nextNode]);
-    if(!currentPath) currentPath = [];
-    if(currentPath.length >= 2)
-        currentPath.shift();
-    currentPath.push(path[0]);
-    previousNode = currentNode;
-    currentNode = nextNode;
-    if(currentPath.length < 2) {
+    updateState('currentNode', State.currentNode === -1 ? 0 : State.currentNode);
+    console.log('currentNode', State.currentNode, 'previousNode', State.previousNode);
+    let nextNode = getRandomNodeNeighbour(State.currentNode, State.previousNode);
+    const path = calcRandomPath(State.pathMode === 8, [State.currentNode, nextNode]);
+    if(!State.currentPath) updateState('currentPath', []);
+    if(State.currentPath.length >= 2) {
+        State.currentPath.shift();
+        updateState('currentPath', State.currentPath);
+    }
+    State.currentPath.push(path[0]);
+    updateState('currentPath',State.currentPath);
+
+    updateState('previousNode', State.currentNode);
+    updateState('currentNode', nextNode);
+    if(State.currentPath.length < 2) {
         handlePartialPathGeneration();
         return;
     }
-    updateDisplayByPath(currentPath);
-    sendPath(currentPath);
+    console.log('currentPath', State.currentPath);
+    updateDisplayByPath(State.currentPath);
+    sendPath(State.currentPath);
 }
 
 /**
@@ -564,13 +720,13 @@ const printLog = (message) => {
  */
 const handleTrackerData = (data, skipConversion) => {
     const editMode = document.getElementById('calibrationDataDisplay').style.display === 'none';
-    if(!allowTracking) return;
+    if(!State.allowTracking) return;
     const trackerDebugData = document.getElementById('trackerDebugData');
     const [name, x, y, z, rx, ry, rz, rw] = data.split(',');
-    currentTrackerValues[name] = {x, y, z, rx, ry, rz, rw};
+    State.currentTrackerValues[name] = {x, y, z, rx, ry, rz, rw};
     // TODO: change if we have multiple trackers
-    if(mainTrackerName === '')
-        mainTrackerName = name;
+    if(State.mainTrackerName === '')
+        updateState('mainTrackerName', name);
     let coords;
     if(skipConversion) {
         coords = {x, y};
@@ -580,24 +736,24 @@ const handleTrackerData = (data, skipConversion) => {
             parseFloat(z),
             CANVAS_SIZE,
             CANVAS_MARGIN,
-            (editMode ? newCalibrationData : undefined)
+            (editMode ? State.newCalibrationData : undefined)
         );
     }
     
     if(!coords) {
-        trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords}, null, 2);
+        trackerDebugData.innerText = JSON.stringify({...State.currentTrackerValues, coords}, null, 2);
         return;
     }
     const nodesInRange = getCurrentNodeInRange(coords.x, coords.y);
-    if(currentNode === -1 && nodesInRange === 0 && useTrackingForLights)
-        currentNode = 0;
-    trackerDebugData.innerText = JSON.stringify({...currentTrackerValues, coords, nodesInRange}, null, 2);
+    if(State.currentNode === -1 && nodesInRange === 0 && State.useTrackingForLights)
+        updateState('currentNode', 0);
+    trackerDebugData.innerText = JSON.stringify({...State.currentTrackerValues, coords, nodesInRange}, null, 2);
     activateSVGNodes([nodesInRange]);
     updatePathWithTracking(nodesInRange);
     updateCanvas([coords]);
     // so outlines wont be overdrawn
     if(editMode) {
-        updateCanvasWithCalibrationData(newCalibrationData, true);
+        updateCanvasWithCalibrationData(State.newCalibrationData, true);
     }
 }
 
@@ -608,7 +764,7 @@ const handleTrackerData = (data, skipConversion) => {
  * @returns 
  */
 const updatePathWithTracking = (nodeInRange) => {
-    if([previousNode, currentNode].includes(nodeInRange)) {
+    if([State.previousNode, State.currentNode].includes(nodeInRange)) {
         handlePartialPathGeneration();
     }
 };
@@ -651,7 +807,7 @@ const activateSVGNodes = (activeNodes) => {
  * creates a random path and sends it to the server
  */
 const sendRandomPath = () => {
-    const path = calcRandomPath(pathMode === 8);
+    const path = calcRandomPath(State.pathMode === 8);
     updateDisplayByPath(path);
     // sendPath(path);
     sendPath(path);
@@ -694,7 +850,7 @@ const updateDisplayByPath = (paths, highlightedPaths) => {
  * @param {boolean} state
  */
 const sendLightUpdate = (index, state) => {
-    socket.send(JSON.stringify({
+    sendMsg(JSON.stringify({
         path: '/setlight',
         body: {
             index: index,
@@ -707,7 +863,7 @@ const sendLightUpdate = (index, state) => {
  * sends a request to the server to reset all lights
 */
 const sendReset = () => {
-    socket.send(JSON.stringify({
+    sendMsg(JSON.stringify({
         path: '/reset',
         body: ''
     }));
@@ -723,7 +879,7 @@ const sendPath = (path) => {
             return path.includes(i) ? '0' : '1';
         return path.includes(i) ? '1' : '0'
     }).join('');
-    socket.send(JSON.stringify({
+    sendMsg(JSON.stringify({
         path: '/setall',
         body
     }));
@@ -875,7 +1031,7 @@ const toggleCalibrationDataEditView = (skipSave) => {
     setCanvasToEditView(setToEdit);
     if(setToEdit) {
         display.style.display = 'none';
-        const data = newCalibrationData;
+        const data = State.newCalibrationData;
         edit.value = data ? JSON.stringify(data, null, 2) : '';
         edit.style.display = 'block';
         editBtn.innerHTML = 'Save';
@@ -904,10 +1060,7 @@ const toggleCalibrationDataEditView = (skipSave) => {
  * @param {{minY: number, maxY: number, minX: number, maxX: number}} update
  */
 const updateNewCalibrationData = (update) => {
-    newCalibrationData = {...newCalibrationData, ...update};
-    const edit = document.getElementById('calibrationDataEdit');
-    edit.value = JSON.stringify(newCalibrationData, null, 2);
-    updateCanvasWithCalibrationData(newCalibrationData);
+    updateState('newCalibrationData', {...State.newCalibrationData, ...update});
 };
 
 /**
@@ -926,20 +1079,22 @@ const setCanvasToEditView = (isEditView) => {
             e.preventDefault();
         const value = 0.01 * (scrollingDown ? -1 : 1) * (isctrl ? 0.1 : 1);
 
+        let updatedCalibrationData = {...State.newCalibrationData};
+
         if(ishift) {
-            newCalibrationData.maxY += value;
-            newCalibrationData.minY += value;
+            updatedCalibrationData.maxY += value;
+            updatedCalibrationData.minY += value;
         } else {
-            newCalibrationData.maxX += value;
-            newCalibrationData.minX += value;
+            updatedCalibrationData.maxX += value;
+            updatedCalibrationData.minX += value;
         }
-        updateNewCalibrationData({...newCalibrationData});
+        updatedCalibrationData({...updatedCalibrationData});
     };
 
     if(isEditView) {
         canvas.style.pointerEvents = 'auto';
         canvas.addEventListener('wheel', handleScroll);
-        updateCanvasWithCalibrationData(newCalibrationData);
+        updateCanvasWithCalibrationData(State.newCalibrationData);
     } else {
         canvas.style.pointerEvents = 'none';
         canvas.removeEventListener('wheel', handleScroll);
@@ -959,35 +1114,35 @@ const updateCanvasWithCalibrationData = (points, keepCanvas) => {
     if(!keepCanvas)
         updateCanvas([]);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.maxX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.maxY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
     drawLines([
-        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
-        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX, points.minY + yRange / 2, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
+        convertTrackerDataToCanvasCoordinates(points.minX + xRange / 2, points.minY, CANVAS_SIZE, CANVAS_MARGIN, State.newCalibrationData),
     ], true);
 };
 
@@ -1020,27 +1175,21 @@ const startTaskTimer = (next) => {
         if(durationInSeconds === -1) {
             timer.innerText = "0:00";
             timer.style.display = 'none';
-            clearInterval(taskTimer);
+            clearInterval(State.taskTimer);
+            updateState('taskTimer', null);
             next?.();
         }
     };
     updateTimer();
-    taskTimer = setInterval(updateTimer, 1000);
+    updateState('taskTimer', setInterval(updateTimer, 1000));
 };
 
 const stopTaskTimer = () => {
-    clearInterval(taskTimer);
+    clearInterval(State.taskTimer);
     const timer = document.getElementById('taskTimer');
     timer.innerText = "0:00";
     timer.style.display = 'none';
 };
 
 // init
-syncCalibrationDataDisplay();
-setConnectionStatusDisplay(false);
-initPresetSelection();
-initNbackTypeSelect();
-updatePathMode();
-
-document.getElementById('participantIdInput').value = INIT_CONFIG.participantId;
-updateParticipantIdAndConfig();
+Init();
