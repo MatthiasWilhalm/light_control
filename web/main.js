@@ -9,8 +9,8 @@ const socket = new WebSocket(URL);
 const CANVAS_SIZE = 930;
 const CANVAS_MARGIN = 30;
 
-// const TASK_DURATION = 60 * 2; // 2 minutes in seconds
-const TASK_DURATION = 30;
+const TASK_DURATION = 60 * 2; // 2 minutes in seconds
+// const TASK_DURATION = 10;
 
 const isOutputReversed = () => document.getElementById('reverseOutput').classList.contains('button-selected');
 
@@ -701,7 +701,6 @@ const updateParticipantIdAndConfig = () => {
  */
 const handlePartialPathGeneration = () => {
     updateState('currentNode', State.currentNode === -1 ? 0 : State.currentNode);
-    console.log('currentNode', State.currentNode, 'previousNode', State.previousNode);
     let nextNode = getRandomNodeNeighbour(State.currentNode, State.previousNode);
     const path = calcRandomPath(State.pathMode === 8, [State.currentNode, nextNode]);
     if(!State.currentPath) updateState('currentPath', []);
@@ -718,7 +717,6 @@ const handlePartialPathGeneration = () => {
         handlePartialPathGeneration();
         return;
     }
-    console.log('currentPath', State.currentPath);
     updateDisplayByPath(State.currentPath);
     sendPath(State.currentPath);
 }
@@ -1232,6 +1230,7 @@ const startTaskTimer = (next) => {
 
 const stopTaskTimer = () => {
     clearInterval(State.taskTimer);
+    updateState('taskTimer', null);
     const timer = document.getElementById('taskTimer');
     timer.innerText = "0:00";
     timer.style.display = 'none';
