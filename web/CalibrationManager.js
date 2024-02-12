@@ -1,5 +1,5 @@
 // range where the it counts as "user is on the node"
-export const detectableNodeRange = 100;
+export const detectableNodeRange = 150;
 
 // normalised nodes location on canvas
 const nodes = [
