@@ -173,6 +173,7 @@ const InputElements = {
     startTaskRound: {
         eventType: 'click',
         event: (e) => {
+            const presetConfig = getPresetConfigByName(document.getElementById('presetSelect').value);
             const button = document.getElementById("startTaskRound");
             if(State.taskTimer) { // timer is running
                 stopTaskTimer();
@@ -187,11 +188,19 @@ const InputElements = {
             }
             updateParticipantIdAndConfig();
             toggleLogging(true);
-            sendMsg(JSON.stringify({
-                path: '/nback',
-                body: 'startTask'
-            }));
-            updateState('useTrackingForLights', true);
+            // does not start the n-back task if a walking-only preset is selected
+            if(!presetConfig || presetConfig?.config?.type !== PRESET_TYPES.WALKING_ONLY) {
+                printLog('starting task');
+                sendMsg(JSON.stringify({
+                    path: '/nback',
+                    body: 'startTask'
+                }));
+            }
+            // does not start the lights if a n-back-only preset is selected
+            if(!presetConfig || presetConfig?.config?.type !== PRESET_TYPES.NBACK_ONLY) {
+                printLog('start lights');
+                updateState('useTrackingForLights', true);
+            }
             
             button.innerText = "Stop Task";
             startTaskTimer(() => {
