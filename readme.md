@@ -25,7 +25,7 @@ This repo contains:
 ### Arduino
 #### on native hardware
 - plug in your Arduino to your PC
-- or `pio run -t upload`
+- run `pio run -t upload`
 #### on Wokwi simulator
 - Change `USE_EMULATOR = False` to `True` in `server/server.py` and restart the server
 - I recomment using VS-Code Wokwi plugin. [Guide](https://docs.wokwi.com/vscode/getting-started)
