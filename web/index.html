@@ -19,7 +19,7 @@
                 <li><button id="updateId">Sync</button></li>
                 <li><button id="forceSaveLogs">Force-Save all Logs</button></li>
                 <li><button id="disableLogging">Disable Logging</button></li>
-                <li><button id="startTask">Start Task</button></li>
+                <li><button id="startTaskRound">Start Task</button></li>
                 <li><label>Lights</label></li>
                 <li><button id="useTrackingForLights">Use Tracking</button></li>
                 <li>
@@ -88,11 +88,15 @@
         <div class="light-map">
             <canvas id="trackerMap" width="930px" height="930px"></canvas>
             <code id="trackerDebugData"></code>
-            <div id="manualTrackerCalibrationDisplay" style="display: none;">
+            <div class="calibration-element" id="manualTrackerCalibrationDisplay" style="display: none;">
                 <div id="trackerMinX">Min X</div>
                 <div id="trackerMaxX">Max X</div>
                 <div id="trackerMinY">Min Y</div>
                 <div id="trackerMaxY">Max Y</div>
+            </div>
+            <div class="calibration-element" id="extendedTorsoCalobration" style="display: none;">
+                <div><button id="autoCalibrateTorso">Auto Calibrate</button></div>
+                <div id="manualCalibrateTorso">Manual Calibration</div>
             </div>
             <p id="taskTimer" style="display: none;"></p>
             <p id="timer" style="display: none;"></p>
